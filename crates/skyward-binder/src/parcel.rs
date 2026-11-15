@@ -1,11 +1,5 @@
 use anyhow::{bail, Context, Result};
 
-/// The mark libbinder writes into every call header. Both ends have to agree
-/// on it: it tells apart the copies of libbinder a phone carries. The system
-/// copy packs "SYST", the vendor copy "VNDR".
-const HEADER_SYSTEM: i32 = i32::from_be_bytes(*b"SYST");
-const HEADER_VENDOR: i32 = i32::from_be_bytes(*b"VNDR");
-
 /// Strict mode gathers violations rather than acting on them. The receiver
 /// reads the work-source field that follows only if bit 6 (STRICT_MODE_PENALTY_GATHER
 /// in Android libbinder, 1 << 6 = 0x40) is set. All other bits are reserved for
@@ -76,24 +70,24 @@ impl Payload for Parcel {
 
 impl Parcel {
     /// A call to `interface`, opened with the header libbinder reads before
-    /// it looks at anything the method itself takes.
+    /// it looks at anything the method itself takes. The format matches
+    /// Android libbinder's writeInterfaceToken: strict-mode (with the
+    /// work-source bit set), work-source UID, and the interface name as a
+    /// UTF-16 string. No stability marker is written; Android's
+    /// writeInterfaceToken does not include one and enforceInterface does
+    /// not read one.
     pub fn call(interface: &str) -> Parcel {
-        Parcel::call_with(interface, HEADER_SYSTEM)
-    }
-
-    /// A call to a service built against the vendor copy of libbinder, which
-    /// the phone's own hardware services are.
-    pub fn call_vendor(interface: &str) -> Parcel {
-        Parcel::call_with(interface, HEADER_VENDOR)
-    }
-
-    fn call_with(interface: &str, header: i32) -> Parcel {
         let mut p = Parcel::default();
         p.i32(STRICT_MODE_PENALTY_GATHER);
         p.i32(UNSET_WORK_SOURCE);
-        p.i32(header);
         p.string(interface);
         p
+    }
+
+    /// A call to a service built against the vendor copy of libbinder.
+    /// The header format is the same as for system services.
+    pub fn call_vendor(interface: &str) -> Parcel {
+        Self::call(interface)
     }
 
     pub fn bytes(&self) -> &[u8] {
@@ -261,13 +255,11 @@ impl<'a> Reader<'a> {
     }
 
     /// The header a call opens with, which libbinder writes before what the
-    /// method takes, and the interface it names. The mark in it tells apart
-    /// the copies of libbinder a phone carries, and a caller may be built
-    /// from any of them, so it is read past.
+    /// method takes, and the interface it names. Matches Android libbinder's
+    /// writeInterfaceToken: strict-mode, work-source, and interface name.
     pub fn call(&mut self) -> Result<String> {
         self.i32().context("read the caller's strict mode")?;
         self.i32().context("read the caller's work source")?;
-        self.i32().context("read the mark of the caller's libbinder")?;
         self.string().context("read the interface called")
     }
 
@@ -325,9 +317,8 @@ mod tests {
     fn a_call_opens_with_the_header_and_the_interface_name() {
         let p = Parcel::call("a.b.IC");
         let mut r = Reader::new(p.bytes());
-        assert_eq!(r.i32().unwrap(), 1 << 6, "strict mode gathers: bit 6 set so work source follows");
+        assert_eq!(r.i32().unwrap(), 1 << 6, "strict mode: bit 6 set so work source follows");
         assert_eq!(r.i32().unwrap(), -1, "no work source");
-        assert_eq!(r.i32().unwrap(), HEADER_SYSTEM, "the system mark, SYST");
         assert_eq!(r.string().unwrap(), "a.b.IC");
         assert_eq!(r.here(), p.bytes().len(), "the header is all of it");
     }
@@ -339,13 +330,7 @@ mod tests {
         let mut read = Reader::new(ours.bytes());
         assert_eq!(read.call().unwrap(), "a.b.IC");
         assert_eq!(read.i32().unwrap(), 7, "what the method takes comes next");
-        let mut vendor = Parcel::default();
-        vendor.i32(i32::MIN);
-        vendor.i32(-1);
-        vendor.i32(i32::from_be_bytes(*b"VNDR"));
-        vendor.string("a.b.IC");
-        assert_eq!(Reader::new(vendor.bytes()).call().unwrap(), "a.b.IC", "the vendor partition's copy");
-        assert!(Reader::new(&[0; 8]).call().is_err(), "a call cut short");
+        assert!(Reader::new(&[0; 4]).call().is_err(), "a call cut short");
     }
 
     #[test]
@@ -387,12 +372,11 @@ mod tests {
     }
 
     #[test]
-    fn a_vendor_call_opens_with_the_vendor_mark() {
+    fn a_vendor_call_has_the_same_format_as_a_system_call() {
         let p = Parcel::call_vendor("a.b.IC");
         let mut r = Reader::new(p.bytes());
-        assert_eq!(r.i32().unwrap(), 1 << 6, "strict mode gathers: bit 6 set so work source follows");
+        assert_eq!(r.i32().unwrap(), 1 << 6, "strict mode: bit 6 set so work source follows");
         assert_eq!(r.i32().unwrap(), -1, "no work source");
-        assert_eq!(r.i32().unwrap(), HEADER_VENDOR, "the vendor mark, VNDR");
         assert_eq!(r.string().unwrap(), "a.b.IC");
     }
 
