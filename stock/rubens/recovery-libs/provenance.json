@@ -1,0 +1,17 @@
+{
+  "libbinder.so": {
+    "source": "recovery-elf-analysis\\vndk31-libbinder.so",
+    "size": 577488,
+    "sha256": "6bbe98eb0f7470d9d4a6a36ec3556eb2cbcd9bfd6166c8f49c432c95a85602ba"
+  },
+  "libvintf.so": {
+    "source": "ota-extracted\\vintf-read\\system\\system\\lib64\\libvintf.so",
+    "size": 664496,
+    "sha256": "e04814d2fd77cf8694c57cee61b958f52d33967d7a4099d6efe6f84701012938"
+  },
+  "android.hidl.token@1.0.so": {
+    "source": "ota-extracted\\vintf-read\\system\\system\\lib64\\android.hidl.token@1.0.so",
+    "size": 83712,
+    "sha256": "0c5d9eda74ec38055a700ff75f4073f11145339e15cf598b7238453f4a71ac7b"
+  }
+}

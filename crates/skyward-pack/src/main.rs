@@ -341,7 +341,8 @@ fn edit_ramdisk(rd: &mut Ramdisk, stock: &Path, files: &Packed<'_>, add: &[Strin
     for extra in add {
         let (name, path) = extra.split_once('=').with_context(|| format!("{extra} is not NAME=PATH"))?;
         ensure!(name.starts_with('/') && !name.ends_with('/'), "{name} is not a file's path in the ramdisk");
-        rd.add(name, 0o644, read(Path::new(path))?)?;
+        // CPIO names are relative to root, as the stock archive's are.
+        rd.add(name.trim_start_matches('/'), 0o644, read(Path::new(path))?)?;
     }
     // On an unlocked device adbd keeps root when ro.secure is 0 and lets any
     // computer in without authorization when ro.adb.secure is 0; init lets a

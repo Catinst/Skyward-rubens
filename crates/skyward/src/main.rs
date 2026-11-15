@@ -33,6 +33,8 @@ mod pty;
 mod readings;
 #[cfg(target_os = "android")]
 mod relabel;
+#[cfg(any(target_os = "android", test))]
+mod recovery_libraries;
 #[cfg(target_os = "android")]
 mod secure;
 #[cfg(target_os = "android")]
@@ -652,14 +654,7 @@ const RECOVERY_LIBRARIES: &str = "/system/lib64";
 /// started keeps the copy it has open.
 #[cfg(target_os = "android")]
 fn start_logd(wanted: &skyward_config::Logd) -> Result<()> {
-    for library in &wanted.libraries {
-        let from = Path::new(library);
-        let to = Path::new(RECOVERY_LIBRARIES).join(from.file_name().expect("the configuration names each library's file"));
-        let mut part = to.clone().into_os_string();
-        part.push(".part");
-        std::fs::copy(from, &part).with_context(|| format!("copy {library} to {}", Path::new(&part).display()))?;
-        std::fs::rename(&part, &to).with_context(|| format!("put {} in place", to.display()))?;
-    }
+    recovery_libraries::copy(&wanted.libraries, Path::new(RECOVERY_LIBRARIES))?;
     // The phone's own recovery starts logd itself as it boots, as the logd
     // account, and the daemon sets its own scheduling cgroup as it starts,
     // which only root may write. Where that one is not up by the time this
@@ -864,6 +859,13 @@ fn prepare(cfg: &DeviceConfig, slot: skyward_vab::Slot) -> Result<Vec<skyward_co
             }
             for m in &mounts.partitions {
                 skyward_sys::kmsg(&format!("mounted {} on {} ({})", m.partition, m.mount_point.display(), m.filesystem))?;
+            }
+            // The recovery's own services can depend on libraries absent from
+            // its ramdisk. Prepare those before naming programs or starting
+            // the critical service directory. Failure must leave the UI usable.
+            if let Err(e) = recovery_libraries::copy(&cfg.device.recovery_libraries, Path::new(RECOVERY_LIBRARIES)) {
+                skyward_sys::kmsg(&format!("recovery libraries not prepared: {e:#}"))?;
+                return Ok(Vec::new());
             }
             let found = secure::libraries().and_then(|libraries| keys::found(slot, libraries.as_deref()));
             let steps = found.as_ref().ok().and_then(|found| found.steps.as_deref().ok());

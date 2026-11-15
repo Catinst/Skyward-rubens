@@ -9,6 +9,13 @@ soc = { hans = "天玑 8100", hant = "天璣 8100", en = "Dimensity 8100" }
 os_version_prop = "ro.mi.os.version.incremental"
 recovery_partition = "vendor_boot"
 restart_service_directory = false
+# The original ramdisk omits the Binder/VINTF dependencies of its service
+# directories. Use the ABI-checked bundle, not the running Android 15 libs.
+recovery_libraries = [
+  "/skyward/recovery-libs/libbinder.so",
+  "/skyward/recovery-libs/libvintf.so",
+  "/skyward/recovery-libs/android.hidl.token@1.0.so",
+]
 
 [display]
 width = 1440
