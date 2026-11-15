@@ -1,19 +1,19 @@
 # Override servicemanager for Skyward recovery on rubens.
-# Changes from the stock servicemanager.rc:
-#   1. Removes "critical" so a startup failure does not trigger an init
-#      reboot loop (the UI stays usable while the cause is diagnosed).
-#   2. Adds the VNDK31 APEX to LD_LIBRARY_PATH so that libbinder.so and
-#      all its transitive dependencies (libutils, libcutils, ...) are
-#      resolved from the same VNDK31 set, not from the ramdisk's recovery
-#      copies, keeping the ABI consistent.
-#   The APEX is mounted by secure::libraries() in prepare() before
-#   bring_up() sends ctl.start servicemanager, so the path exists in time.
+# Change from the stock servicemanager.rc:
+#   Removes "critical" so a startup failure does not trigger an init
+#   reboot loop (the UI stays usable while initialization retries).
+#
+# No LD_LIBRARY_PATH override: KernelSU magic-mounts the installed
+# system partition's /system/lib64/ files (libc++, libvndksupport,
+# libvintf, etc.) into /system/lib64/ before servicemanager starts.
+# Those are the correct versions for the system's servicemanager binary.
+# Adding the VNDK31 APEX first in LD_LIBRARY_PATH was counterproductive
+# because the APEX libc++ lacks vtable entries that the binary needs.
 service servicemanager /system/bin/servicemanager
     override
     class core animation
     user system
     group system readproc
-    setenv LD_LIBRARY_PATH /apex/com.android.vndk.v31/lib64:/system/lib64:/vendor/lib64
     onrestart restart apexd
     onrestart restart audioserver
     onrestart restart gatekeeperd
@@ -22,3 +22,4 @@ service servicemanager /system/bin/servicemanager
     onrestart class_restart early_hal
     writepid /dev/cpuset/system-background/tasks
     shutdown critical
+

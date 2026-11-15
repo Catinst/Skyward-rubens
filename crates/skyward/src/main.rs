@@ -550,10 +550,30 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
     // The recovery's init leaves the service directory stopped; the
     // phone's own programs register with it, and the directory has to be
     // told what they are before they start.
+    //
+    // On devices where KernelSU magic-mounts the installed system into
+    // the recovery rootfs, the service directory binary only links after
+    // those bind mounts are in place. init retries it on its own, so
+    // sending ctl.start is enough; a 30-second poll waits until the
+    // directory is reachable via binder rather than just "running" in
+    // init's view, which can be satisfied by a launch that immediately
+    // crashes and starts again.
     if crate::services::running("/system/bin/servicemanager").is_none() {
         skyward_sys::set_prop("ctl.start", "servicemanager").context("start the service directory")?;
-        skyward_sys::wait_prop("init.svc.servicemanager", "running", std::time::Duration::from_secs(5))
-            .context("wait for the service directory")?;
+    }
+    {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        loop {
+            if crate::services::running("/system/bin/servicemanager").is_some()
+                && crate::services::reachable()
+            {
+                break;
+            }
+            if std::time::Instant::now() >= deadline {
+                anyhow::bail!("the service directory was not reachable in 30 seconds");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
     }
     let nodes = skyward_sys::ueventd::apply()?;
     skyward_sys::kmsg(&format!("{nodes} device nodes given the owner their phone describes"))?;
