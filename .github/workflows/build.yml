@@ -134,6 +134,7 @@ jobs:
           tools/skyward-pack recovery --stock stock/recovery.img --binary tools/skyward --system-init tools/system-init \
             --config "devices/$DEVICE.toml" --font resources/fonts/MiSansVF.ttf --mono resources/fonts/KirkMono-Regular.ttf \
             --mono-license resources/fonts/KirkMono-OFL.txt \
+            --add /system/etc/init/skyward-servicemanager-override.rc=stock/rubens/skyward-servicemanager-override.rc \
             --out "out/$name.img"
           echo "name=$name" >> "$GITHUB_OUTPUT"
       - name: Verify the packed image and unchanged original fstab
@@ -150,6 +151,8 @@ jobs:
           cmp tools/skyward /tmp/packed-recovery
           tools/skyward-pack cat "$IMAGE" skyward/device.toml > /tmp/packed-device.toml
           cmp devices/rubens.toml /tmp/packed-device.toml
+          tools/skyward-pack cat "$IMAGE" system/etc/init/skyward-servicemanager-override.rc > /tmp/packed-svc-override.rc
+          cmp stock/rubens/skyward-servicemanager-override.rc /tmp/packed-svc-override.rc
       # The output is a full vendor_boot image. No device is flashed here.
       - name: Zip the image
         working-directory: out
