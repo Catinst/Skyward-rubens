@@ -9,7 +9,7 @@ pub const GROUP_FILES: [&str; 2] = ["/vendor/etc/group", "/odm/etc/group"];
 /// The accounts Android fixes once and for all. The rules, and the init
 /// scripts of the phone's own programs, name them rather than their
 /// numbers, and a recovery has no list of its own to look them up in.
-const ACCOUNTS: [(&str, u32); 33] = [
+const ACCOUNTS: [(&str, u32); 43] = [
     ("root", 0),
     ("system", 1000),
     ("radio", 1001),
@@ -31,14 +31,24 @@ const ACCOUNTS: [(&str, u32); 33] = [
     ("keystore", 1017),
     ("usb", 1018),
     ("drm", 1019),
+    ("mdnsr", 1020),
     ("gps", 1021),
     ("media_rw", 1023),
     ("mtp", 1024),
     ("drmrpc", 1026),
     ("nfc", 1027),
+    ("sdcard_r", 1028),
+    ("clat", 1029),
     ("audioserver", 1041),
     ("cameraserver", 1047),
     ("shell", 2000),
+    ("net_bt_admin", 3001),
+    ("net_bt", 3002),
+    ("inet", 3003),
+    ("net_raw", 3004),
+    ("net_admin", 3005),
+    ("net_bw_stats", 3006),
+    ("net_bw_acct", 3007),
     ("readproc", 3009),
     ("wakelock", 3010),
     ("uhid", 3011),
@@ -241,5 +251,13 @@ mod tests {
         assert_eq!(account(&known, "vendor_qti_diag"), Some(2901));
         assert_eq!(account(&known, "system"), Some(1000));
         assert_eq!(account(&known, "nothing"), None);
+    }
+
+    #[test]
+    fn the_network_accounts_android_fixes_are_known() {
+        let known = accounts(&[]);
+        assert_eq!(account(&known, "inet"), Some(3003), "the programs that reach the network's own");
+        assert_eq!(account(&known, "net_raw"), Some(3004));
+        assert_eq!(account(&known, "sdcard_r"), Some(1028));
     }
 }
