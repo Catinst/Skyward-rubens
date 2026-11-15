@@ -676,6 +676,7 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
 /// The folder the recovery's own programs load their libraries from.
 #[cfg(target_os = "android")]
 const RECOVERY_LIBRARIES: &str = "/system/lib64";
+#[cfg(target_os = "android")]
 const RECOVERY_EXECUTABLES: &str = "/system/bin";
 
 /// Give the recovery's own logd the libraries of the installed system it
