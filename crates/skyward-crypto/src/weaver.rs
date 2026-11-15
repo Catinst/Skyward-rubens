@@ -167,9 +167,7 @@ mod tests {
     fn a_read_asks_the_slot_by_number_with_the_key() {
         let call = ask_value(3, &[7; 16]);
         let mut r = Reader::new(call.bytes());
-        r.i32().unwrap();
-        r.i32().unwrap();
-        assert_eq!(r.string().unwrap(), INTERFACE);
+        assert_eq!(r.call().unwrap(), INTERFACE);
         assert_eq!(r.i32().unwrap(), 3);
         assert_eq!(r.blob().unwrap(), vec![7; 16]);
         assert_eq!(r.here(), call.bytes().len());
