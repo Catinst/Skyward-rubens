@@ -6,9 +6,13 @@ use anyhow::{bail, Context, Result};
 const HEADER_SYSTEM: i32 = i32::from_be_bytes(*b"SYST");
 const HEADER_VENDOR: i32 = i32::from_be_bytes(*b"VNDR");
 
-/// Strict mode gathers violations rather than acting on them; a caller with
-/// no policy of its own still sets that bit.
-const STRICT_MODE_PENALTY_GATHER: i32 = i32::MIN;
+/// Strict mode gathers violations rather than acting on them. The receiver
+/// reads the work-source field that follows only if bit 6 (STRICT_MODE_PENALTY_GATHER
+/// in Android libbinder, 1 << 6 = 0x40) is set. All other bits are reserved for
+/// strict-mode policy flags; a caller with no policy of its own leaves them zero.
+/// Bit 31 is not meaningful here; the value that matters for interoperability is
+/// just 0x40 (bit 6 set, all else zero).
+const STRICT_MODE_PENALTY_GATHER: i32 = 1 << 6;
 
 /// The work source a caller passes on when it has none to pass on.
 const UNSET_WORK_SOURCE: i32 = -1;
@@ -321,7 +325,7 @@ mod tests {
     fn a_call_opens_with_the_header_and_the_interface_name() {
         let p = Parcel::call("a.b.IC");
         let mut r = Reader::new(p.bytes());
-        assert_eq!(r.i32().unwrap(), i32::MIN, "strict mode gathers");
+        assert_eq!(r.i32().unwrap(), 1 << 6, "strict mode gathers: bit 6 set so work source follows");
         assert_eq!(r.i32().unwrap(), -1, "no work source");
         assert_eq!(r.i32().unwrap(), HEADER_SYSTEM, "the system mark, SYST");
         assert_eq!(r.string().unwrap(), "a.b.IC");
@@ -386,7 +390,7 @@ mod tests {
     fn a_vendor_call_opens_with_the_vendor_mark() {
         let p = Parcel::call_vendor("a.b.IC");
         let mut r = Reader::new(p.bytes());
-        assert_eq!(r.i32().unwrap(), i32::MIN, "strict mode gathers");
+        assert_eq!(r.i32().unwrap(), 1 << 6, "strict mode gathers: bit 6 set so work source follows");
         assert_eq!(r.i32().unwrap(), -1, "no work source");
         assert_eq!(r.i32().unwrap(), HEADER_VENDOR, "the vendor mark, VNDR");
         assert_eq!(r.string().unwrap(), "a.b.IC");

@@ -1,8 +1,9 @@
 //! Prepare the libraries missing from the recovery before its services run.
 
 use anyhow::{Context, Result};
-use std::ffi::CString;
 use std::path::Path;
+#[cfg(target_os = "android")]
+use std::ffi::CString;
 
 /// Copy the named libraries atomically beside the recovery's own libraries.
 /// Renaming a fresh inode keeps a running program's old mapping valid.
