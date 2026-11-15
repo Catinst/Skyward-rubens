@@ -659,6 +659,12 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
     if !told.is_empty() {
         secure::publish_descriptions(&told)?;
         skyward_sys::kmsg(&format!("the service directory is told of {} of the phone's own services", told.len()))?;
+        // A program built against libbinder's NDK waits for this property
+        // before it talks to the directory at all, and the directory the
+        // recovery starts is built as the vendor's, which never sets it:
+        // its counterpart in the installed system does. The directory has
+        // just taken what was written to it, so it is ready to be said so.
+        skyward_sys::set_prop("servicemanager.ready", "true")?;
     }
     let libraries = secure::libraries()?;
     if let Some(dir) = &libraries {
