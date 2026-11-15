@@ -1279,7 +1279,7 @@ impl<'a> Pages<'a> {
         untaken(&mut unread.battery, "the battery", battery.as_ref().err())?;
         let info = skyward_info::collect_with(cfg, battery.unwrap_or_default())?;
         let fonts = Fonts::load(font, 0, mono)?;
-        let mut surface = KmsSurface::open("/dev/dri/card0", cfg.display.fastest_refresh)?;
+        let mut surface = KmsSurface::open("/dev/dri/card0", cfg.display.fastest_refresh, (cfg.display.width, cfg.display.height))?;
         let (w, h) = surface.size();
         // A touch controller that follows the panel wakes as the panel goes
         // from rest to running, and at no other time. The recovery service
@@ -1741,7 +1741,13 @@ impl<'a> Pages<'a> {
                 let t0 = Instant::now();
                 self.app.compose(&mut self.screen, &self.fonts, &self.info, &self.shown_clock, now);
                 self.surface.present(&self.screen)?;
-                eprintln!("frame {:?} in {} ms", self.app.screen(), t0.elapsed().as_millis());
+                // A frame over the panel's own time is a frame the eye sees
+                // late: say so where it can be read, rather than to the void
+                // the service's stderr goes to.
+                let took = t0.elapsed().as_millis();
+                if took > 20 {
+                    let _ = skyward_sys::kmsg(&format!("frame {:?} took {took} ms", self.app.screen()));
+                }
                 if let Some(path) = self.dump {
                     fs::write(path, &self.screen.data).with_context(|| format!("write {}", path.display()))?;
                 }
