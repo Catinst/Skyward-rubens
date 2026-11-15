@@ -136,6 +136,12 @@ pub struct Wlan {
     /// with an error for, though the chip goes on starting.
     #[serde(default = "one_try")]
     pub attempts: u32,
+    /// Whether the recovery switches the chip on while the phone is
+    /// starting, so that the page's switch finds the interface already
+    /// there. A chip whose connectivity part has only just been started
+    /// calibrates as it is first switched on, and can take a minute.
+    #[serde(default)]
+    pub warm_up: bool,
     /// Files the driver asks the kernel's firmware loader for that are not
     /// where the loader looks in a recovery.
     #[serde(default)]

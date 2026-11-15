@@ -81,6 +81,9 @@ const RETRY: Duration = Duration::from_secs(10);
 pub enum Command {
     On,
     Off,
+    /// Switch the chip on with the page's switch untouched, so that the
+    /// switch, when it is thrown, finds the interface there.
+    Warm,
     Scan,
     Join { ssid: Vec<u8>, name: String, security: Security, password: String },
     Leave,
@@ -124,10 +127,14 @@ impl Worker {
     pub fn start(cfg: Config, modules: Vec<PathBuf>, libraries: Option<PathBuf>, servers: Servers) -> Result<Worker> {
         let (inbox, asked) = worker::telling().context("make the WLAN thread's inbox")?;
         let back = inbox.clone();
+        let warm = cfg.warm_up;
         let worker = worker::Worker::start("wlan", move |tell| {
             let mut s = Station { cfg, modules, libraries, servers, state: Wlan::default(), running: None, back, tell };
             s.run(&asked);
         })?;
+        if warm {
+            inbox.tell(Inbox::Command(Command::Warm));
+        }
         Ok(Worker { inbox, worker })
     }
 
@@ -267,6 +274,7 @@ impl Station {
         match c {
             Command::On => self.on(),
             Command::Off => self.off(),
+            Command::Warm => self.warm(),
             Command::Scan => {
                 if let Some(r) = &self.running {
                     // A scan under way answers FAIL-BUSY, and its results
@@ -293,6 +301,25 @@ impl Station {
                     self.lost(e);
                 }
                 self.state.joined = None;
+            }
+        }
+    }
+
+    /// Switch the chip on with the page still saying the WLAN is off, so
+    /// that the switch, when it is thrown, finds the interface there. A
+    /// chip whose connectivity part has only just been started calibrates
+    /// as it is first switched on, which can take a minute; the wait is
+    /// had here, while the phone is starting, rather than at the switch.
+    fn warm(&mut self) {
+        if self.running.is_some() {
+            return;
+        }
+        match bring_up(&self.cfg, &self.modules) {
+            Ok(()) => {
+                let _ = skyward_sys::kmsg("the WLAN's chip is on before the page's switch, as the phone starts");
+            }
+            Err(e) => {
+                let _ = skyward_sys::kmsg(&format!("the WLAN did not warm up: {e:#}"));
             }
         }
     }
