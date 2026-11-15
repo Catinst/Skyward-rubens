@@ -10,39 +10,26 @@ os_version_prop = "ro.mi.os.version.incremental"
 recovery_partition = "vendor_boot"
 restart_service_directory = false
 # Libraries the original recovery ramdisk lacks, copied to /system/lib64/
-# at runtime by recovery_libraries::copy() during prepare(). These are
+# at runtime by recovery_libraries::copy() during prepare(). They are
 # sourced from the mounted super partitions (/mnt/system/system is where
-# skyward_vab::mount_partitions mounts system_a) so they carry no extra
-# cost on the initrd size or the 64 MiB combined-initrd limit.
-#
-# libbinder.so: the installed Android 15 copy depends on libutils move-
-#   constructor symbols absent from the original recovery ramdisk; the
-#   VNDK31 APEX supplies a compatible copy.
-# libc++.so: the original recovery carries a stripped build that lacks
-#   several C++ vtables (e.g. basic_stringstream) that the installed
-#   system's servicemanager and libvintf need.
-# libvndksupport.so: needed by the VNDK31 libutils when it is loaded via
-#   LD_LIBRARY_PATH by services that explicitly request the APEX path; not
-#   needed when the recovery loads libutils from /system/lib64 directly,
-#   but harmless to have.
-# libvintf.so, android.hidl.token@1.0.so: absent from the original
-#   recovery ramdisk; needed by servicemanager and hwservicemanager.
-# Libraries the original recovery ramdisk lacks, copied to /system/lib64/
-# at runtime during prepare(). No initrd cost; all sourced from the
-# mounted system partition (/mnt/system/system/lib64/) at boot.
+# skyward_vab::mount_partitions mounts system_a), so they cost nothing on
+# the initrd size or the 64 MiB combined-initrd limit.
 #
 # libbinder.so: the recovery ramdisk does not carry it. The VNDK31 APEX
-#   copy was tried first, but VNDK31 is a vendor-side snapshot; using it
-#   for servicemanager (a system binary) caused ABI mismatch: servicemanager
-#   replied with FAILED_TRANSACTION (0x80000001) for every binder call.
-#   The Android 15 system libbinder is backward ABI-compatible with the
-#   Android 12 recovery servicemanager binary.
+#   copy is a vendor-side snapshot, while the system's servicemanager
+#   binary imports its AIDL marshalling from libbinder; a call's header
+#   names the copy of libbinder that laid it out and the receiver turns a
+#   call away where the names differ, so the installed system's copy is
+#   used and Skyward writes that copy's name (see parcel.rs).
+# libbinder_ndk.so: the vendor's keymint, gatekeeperd and keystore2 load
+#   it; the VNDK31 APEX carries no copy and the ramdisk has none.
 # libc++.so: recovery ramdisk carries a stripped build missing vtables.
 # libbase.so: recovery copy lacks fmt::v10::vformat needed by libvintf.
 # libvndksupport.so / libvintf.so / android.hidl.token@1.0.so:
 #   absent from the recovery ramdisk.
 recovery_libraries = [
   "/mnt/system/system/lib64/libbinder.so",
+  "/mnt/system/system/lib64/libbinder_ndk.so",
   "/mnt/system/system/lib64/libutils.so",
   "/mnt/system/system/lib64/libapexsupport.so",
   "/mnt/system/system/lib64/bootstrap/libdl_android.so",
