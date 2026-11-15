@@ -591,19 +591,33 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
         }
     }
     // Now that modules are loaded (haptic, touchscreen, etc.) wait for the
-    // service directory to be reachable via binder. On devices where
-    // KernelSU magic-mounts system libraries, this takes up to ~30 seconds
-    // as init retries the binary until its linker dependencies are in place.
+    // service directory to be alive. On devices where KernelSU magic-mounts
+    // system libraries, this takes up to ~30 seconds as init retries the
+    // binary until its linker dependencies are in place.
+    // The check uses only /proc (services::running) rather than a binder
+    // ping (services::reachable) because the binder pre-check is fragile on
+    // this device: the recovery-to-servicemanager SELinux call denial, even
+    // in permissive mode, makes the low-level binder ioctl return an error
+    // that reachable() propagates as false. Once the process is confirmed
+    // alive in /proc for two consecutive polls 500 ms apart, it is stable
+    // enough to proceed.
     {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let mut seen_once = false;
         loop {
-            if crate::services::running("/system/bin/servicemanager").is_some()
-                && crate::services::reachable()
-            {
-                break;
+            if crate::services::running("/system/bin/servicemanager").is_some() {
+                if seen_once {
+                    // Stable for ≥ 500 ms — give the context manager one more
+                    // moment to register in binder before callers arrive.
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    break;
+                }
+                seen_once = true;
+            } else {
+                seen_once = false;
             }
             if std::time::Instant::now() >= deadline {
-                anyhow::bail!("the service directory was not reachable in 30 seconds");
+                anyhow::bail!("the service directory did not start in 30 seconds");
             }
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
