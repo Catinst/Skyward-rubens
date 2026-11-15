@@ -27,27 +27,28 @@ restart_service_directory = false
 #   but harmless to have.
 # libvintf.so, android.hidl.token@1.0.so: absent from the original
 #   recovery ramdisk; needed by servicemanager and hwservicemanager.
-# libbase.so: the recovery ramdisk's copy is built without {fmt} v10
-#   support; the system's libvintf.so references fmt::v10::vformat which
-#   the recovery copy does not export.
+# Libraries the original recovery ramdisk lacks, copied to /system/lib64/
+# at runtime during prepare(). No initrd cost; all sourced from the
+# mounted system partition (/mnt/system/system/lib64/) at boot.
+#
+# libbinder.so: the recovery ramdisk does not carry it. The VNDK31 APEX
+#   copy was tried first, but VNDK31 is a vendor-side snapshot; using it
+#   for servicemanager (a system binary) caused ABI mismatch: servicemanager
+#   replied with FAILED_TRANSACTION (0x80000001) for every binder call.
+#   The Android 15 system libbinder is backward ABI-compatible with the
+#   Android 12 recovery servicemanager binary.
+# libc++.so: recovery ramdisk carries a stripped build missing vtables.
+# libbase.so: recovery copy lacks fmt::v10::vformat needed by libvintf.
+# libvndksupport.so / libvintf.so / android.hidl.token@1.0.so:
+#   absent from the recovery ramdisk.
 recovery_libraries = [
-  "/apex/com.android.vndk.v31/lib64/libbinder.so",
+  "/mnt/system/system/lib64/libbinder.so",
   "/mnt/system/system/lib64/libc++.so",
   "/mnt/system/system/lib64/libvndksupport.so",
   "/mnt/system/system/lib64/libbase.so",
   "/mnt/system/system/lib64/libvintf.so",
   "/mnt/system/system/lib64/android.hidl.token@1.0.so",
 ]
-# The recovery ramdisk's servicemanager (Android 12, SDK 31) returns
-# FAILED_TRANSACTION for every binder call from Skyward because the
-# strict-mode header Skyward writes lacks bit 6 (STRICT_MODE_PENALTY_GATHER
-# in Android libbinder), which tells the receiver a work-source field
-# follows. Without bit 6, the receiver reads the work-source value as the
-# start of the interface string, enforceInterface fails, and every
-# transaction returns FAILED_TRANSACTION. This is fixed at the Skyward
-# binder parcel layer (crates/skyward-binder/src/parcel.rs), so the
-# original Android 12 servicemanager binary works and no replacement is
-# needed.
 
 [display]
 width = 1440

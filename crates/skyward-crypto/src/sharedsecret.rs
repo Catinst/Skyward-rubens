@@ -154,7 +154,7 @@ mod tests {
             [Parameters { seed: vec![], nonce: vec![9; 32] }, Parameters { seed: vec![4; 32], nonce: vec![5; 32] }];
         let call = ask_compute(&all);
         let mut r = Reader::new(call.bytes());
-        for _ in 0..3 {
+        for _ in 0..2 {
             r.i32().unwrap();
         }
         assert_eq!(r.string().unwrap(), INTERFACE);

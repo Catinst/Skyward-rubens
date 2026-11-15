@@ -242,7 +242,7 @@ mod tests {
     fn the_newer_kind_is_asked_with_the_slot_the_enrolment_and_the_password() {
         let call = ask(100_000, &[1; 58], &[2; 64]);
         let mut r = Reader::new(call.bytes());
-        for _ in 0..3 {
+        for _ in 0..2 {
             r.i32().unwrap();
         }
         assert_eq!(r.string().unwrap(), INTERFACE);
