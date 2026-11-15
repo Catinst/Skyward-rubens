@@ -89,6 +89,17 @@ struct Backlight {
     level: u32,
 }
 
+/// The light a panel gives follows the level it is written with, and the
+/// eye does not: spread the slider's steps by this much so that the dark
+/// end keeps as many of them as the bright end, and the light does not
+/// seem to fall away as the knob nears the left.
+const LIGHT_CURVE: f32 = 2.2;
+
+/// The lowest the panel is lit at while a brightness is set, as a share of
+/// its top: below it the panel is dark in a lit room, and the knob's last
+/// steps would seem to turn the light off.
+const LIGHT_FLOOR: f32 = 0.04;
+
 impl Backlight {
     /// Find the panel's backlight, where the phone has one a recovery can
     /// write: the class the kernel gives it, or the LED MediaTek names its
@@ -141,7 +152,9 @@ impl Backlight {
     /// Light the panel at `level` of its normal maximum, or turn it off
     /// with `None`. The file is written only when the raw level changes.
     fn show(&mut self, level: Option<f32>) -> Result<()> {
-        let raw = level.map_or(0, |v| ((v.clamp(0.0, 1.0) * self.top as f32).round() as u32).max(1));
+        let floor = (self.top as f32 * LIGHT_FLOOR).round() as u32;
+        let span = self.top.saturating_sub(floor) as f32;
+        let raw = level.map_or(0, |v| (floor as f32 + span * v.clamp(0.0, 1.0).powf(LIGHT_CURVE)).round() as u32);
         if raw != self.level {
             fs::write(&self.path, raw.to_string()).with_context(|| format!("write {}", self.path.display()))?;
             eprintln!("backlight {raw}");
