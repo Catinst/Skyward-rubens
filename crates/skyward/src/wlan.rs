@@ -345,6 +345,10 @@ impl Station {
 
     fn start(&self) -> Result<Running> {
         bring_up(&self.cfg, &self.modules)?;
+        // An interface the page switched off was brought down with it, and
+        // one the driver has just made is not up until it is told; the
+        // supplicant cannot scan on one that stands down.
+        iface::set_up(&self.cfg.interface, true).with_context(|| format!("bring {} up", self.cfg.interface))?;
         let mut child = start_supplicant(&self.cfg, self.libraries.as_deref())?;
         let socket = Path::new(HOME).join("sockets").join(&self.cfg.interface);
         let connected = (|| -> Result<(Control, Control)> {
