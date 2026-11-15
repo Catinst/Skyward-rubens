@@ -1,0 +1,166 @@
+# Redmi K50 first build. Based on the owner's unmodified OS1 vendor_boot.
+# ColorOS my_* fstab additions are intentionally excluded.
+[device]
+codename = "rubens"
+brand = "Redmi"
+model = "Redmi K50"
+ab = true
+soc = { hans = "天玑 8100", hant = "天璣 8100", en = "Dimensity 8100" }
+os_version_prop = "ro.mi.os.version.incremental"
+recovery_partition = "vendor_boot"
+restart_service_directory = false
+
+[display]
+width = 1440
+height = 3200
+# The original recovery's prop.default, not the running ROM's override.
+density = 480
+diagonal = 6.67
+fastest_refresh = false
+
+[modules]
+sources = ["vendor_boot", "vendor_dlkm", "vendor"]
+# Original modules.load.recovery already includes fts_touch_spi,
+# xiaomi_touch and panel-l11a-38-0a-0a-dsc-cmd. Haptics is on vendor_dlkm.
+load = ["haptic"]
+# No unverified touchscreen sysfs writes.
+
+[haptics]
+resonance = "/sys/bus/i2c/drivers/awinic_haptic/1-005a/f0"
+strength = { lightest = 0.25, strongest = 1.0 }
+
+[wlan]
+modules = ["wlan_drv_gen4m_6895"]
+nodes = [
+  { user = "wifi", group = "wifi", mode = 0o660, paths = ["/dev/wmtWifi"] },
+  { user = "system", group = "system", mode = 0o660, paths = ["/dev/conninfra_dev"] },
+]
+mounts = [{ partition = "nvdata", at = "/mnt/vendor/nvdata" }]
+settings = { property = "vendor.mtk.nvram.ready", value = "1" }
+writes = [{ path = "/dev/wmtWifi", value = "1" }]
+attempts = 5
+interface = "wlan0"
+supplicant = "/vendor/bin/hw/wpa_supplicant"
+libraries = ["/vendor/lib64/vndk", "/system/lib64", "/vendor/lib64"]
+service = "android.hardware.wifi.supplicant@1.4::ISupplicant/default"
+probe = "http://connect.rom.miui.com/generate_204"
+
+# Local stock input and SHA-256 are documented in stock/rubens/README.md.
+# No [stock] OTA URL: this build uses the supplied OS1 image, not the OS2 OTA.
+[skyward]
+releases = "Catinst/Skyward-rubens"
+
+[update]
+server = "https://update.miui.com/updates/miotaV3.php"
+
+[partitions]
+mounted = ["persist"]
+
+[logd]
+libraries = ["/mnt/system/system/lib64/libsysutils.so", "/mnt/system/system/lib64/libcap.so"]
+
+# Confirmed against this phone's /vendor/etc/init/microtrust.rc.
+[[service]]
+path = "/vendor/bin/teei_daemon"
+libraries = ["/system/lib64", "/vendor/lib64"]
+args = [
+  "-r", "020b0000000000000000000000000000",
+  "-r", "020f0000000000000000000000000000",
+  "-r", "06090000000000000000000000000000",
+  "-r", "05120000000000000000000000000000",
+  "-r", "40188311faf343488db888ad39496f9a",
+  "-r", "07060000000000000000000000007169",
+  "-r", "4be4f7dc1f2c11e5b5f7727283247c7f",
+  "-r", "9073f03a9618383bb1856eb3f990babd",
+  "-r", "08050000000000000000000000003419",
+  "-r", "5020170115e016302017012521300000",
+  "-r", "0f5eed3c3b5a47afacca69a84bf0efad",
+  "-r", "07407000000000000000000000000000",
+  "-r", "05160000000000000000000000000000",
+  "-r", "91dba524a6e24909acc48abd7163121a",
+  "-r", "08070000000000000000000000008270",
+  "-r", "09080000000000000000000000009381",
+  "-t", "08030000000000000000000000000000",
+  "-t", "85f630e0f0964c5fa2cc268ce04e3da3",
+  "-t", "98fb95bcb4bf42d26473eae48690d7ea",
+  "-t", "7b66512021214487ba710a51d7ea78fe",
+  "-t", "09010000000000000000000000000000",
+]
+user = "system"
+groups = ["system"]
+capabilities = ["SYS_RAWIO"]
+
+[[service]]
+path = "/vendor/bin/hw/android.hardware.security.keymint@1.0-service.beanpod"
+libraries = ["/system/lib64", "/vendor/lib64"]
+user = "nobody"
+groups = ["nobody"]
+ready_service = "android.hardware.security.keymint.IKeyMintDevice/default"
+registers = [
+  "android.hardware.security.keymint.IRemotelyProvisionedComponent/default",
+  "android.hardware.security.secureclock.ISecureClock/default",
+  "android.hardware.security.sharedsecret.ISharedSecret/default",
+]
+
+[[service]]
+path = "/system/bin/hwservicemanager"
+libraries = ["/system/lib64", "/vendor/lib64"]
+user = "system"
+groups = ["system", "readproc"]
+ready_property = "hwservicemanager.ready"
+
+[[service]]
+path = "/vendor/bin/hw/android.hardware.gatekeeper@1.0-service"
+libraries = ["/system/lib64", "/vendor/lib64"]
+user = "system"
+groups = ["system"]
+ready_hardware_service = "android.hardware.gatekeeper@1.0::IGatekeeper/default"
+
+[[service]]
+path = "/vendor/bin/hw/android.hardware.boot@1.2-service"
+libraries = ["/system/lib64", "/vendor/lib64"]
+user = "root"
+groups = ["root"]
+ready_hardware_service = "android.hardware.boot@1.2::IBootControl/default"
+
+[[service]]
+path = "/vendor/bin/conninfra_loader"
+libraries = ["/system/lib64", "/vendor/lib64"]
+user = "system"
+groups = ["system"]
+
+[[service]]
+path = "/vendor/bin/wlan_assistant"
+libraries = ["/vendor/lib64/vndk", "/system/lib64", "/vendor/lib64"]
+user = "wifi"
+groups = ["system", "gps", "inet"]
+
+[[owners]]
+user = "system"
+group = "system"
+mode = 0o660
+paths = ["/dev/teei_client", "/dev/teei_config", "/dev/tz_vfs"]
+
+[[owners]]
+user = "system"
+group = "drmrpc"
+mode = 0o660
+paths = ["/dev/ut_keymaster"]
+
+[[owners]]
+user = "system"
+group = "drmrpc"
+mode = 0o666
+paths = ["/dev/isee_tee0"]
+
+[[owners]]
+user = "system"
+group = "system"
+mode = 0o660
+paths = ["/dev/0:0:0:49476", "/dev/rpmb0"]
+
+[backup]
+efs = ["nvdata", "nvcfg", "protect1", "protect2", "persist"]
+
+[wipe]
+logs = ["/data/vendor/mtklog", "/data/vendor/connsyslog"]

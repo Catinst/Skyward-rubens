@@ -1,9 +1,7 @@
 name: Build
 
-# Every push is linted and tested, and the recovery is built for every
-# device in devices/, each image zipped. A tag starting with v publishes
-# those zips as a release, each shown as the phone it is for. Run by hand,
-# it can build for one device alone.
+# This fork builds only rubens, from the supplied unmodified OS1 image.
+# Other device configurations remain for reference and upstream tests.
 on:
   push:
     branches: ["**"]
@@ -11,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       device:
-        description: The codename of the one device to build for; every device when empty
+        description: Device to build (this fork supports rubens)
         required: false
-        default: ""
+        default: "rubens"
 
 permissions:
   contents: read
@@ -95,14 +93,11 @@ jobs:
       - uses: actions/checkout@v7
       - id: list
         env:
-          DEVICE: ${{ inputs.device }}
+          DEVICE: ${{ inputs.device || 'rubens' }}
         run: |
-          if [ -n "$DEVICE" ]; then
-            test -f "devices/$DEVICE.toml"
-            echo "devices=$(jq -nc --arg device "$DEVICE" '[$device]')" >> "$GITHUB_OUTPUT"
-          else
-            echo "devices=$(basename -s .toml devices/*.toml | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
-          fi
+          test "$DEVICE" = rubens
+          test -f "devices/$DEVICE.toml"
+          echo "devices=$(jq -nc --arg device "$DEVICE" '[$device]')" >> "$GITHUB_OUTPUT"
 
   recovery:
     name: Recovery for ${{ matrix.device }}
@@ -120,24 +115,13 @@ jobs:
           path: tools
       - name: Make the tools runnable
         run: chmod +x tools/skyward tools/skyward-pack
-      - name: Read the stock build the recovery is made on
+      - name: Restore and verify the supplied OS1 vendor boot
         id: stock
-        run: tools/skyward-pack stock --config "devices/${{ matrix.device }}.toml" >> "$GITHUB_OUTPUT"
-      - name: Restore the stock recovery
-        id: cache
-        uses: actions/cache@v6
-        with:
-          path: stock/recovery.img
-          key: stock-recovery-${{ steps.stock.outputs.recovery }}
-      # Only what the recovery partition takes is read of the package,
-      # which is several gigabytes in all.
-      - name: Take the recovery partition out of the stock package
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: tools/skyward-pack stock --config "devices/${{ matrix.device }}.toml" --out stock/recovery.img
-      - name: Check the stock recovery
-        env:
-          RECOVERY: ${{ steps.stock.outputs.recovery }}
-        run: echo "$RECOVERY  stock/recovery.img" | sha256sum --check
+        run: |
+          mkdir -p stock
+          xz -dc stock/rubens/vendor_boot.img.xz > stock/recovery.img
+          echo '518f97f578fcc096c2eb54ba96e9bc7e37cee8d8b717bf0ae87f19bd3b814758  stock/recovery.img' | sha256sum --check
+          echo 'version=OS1.0.14.0.ULNCNXM' >> "$GITHUB_OUTPUT"
       - name: Pack the recovery
         id: pack
         env:
@@ -151,8 +135,21 @@ jobs:
             --config "devices/$DEVICE.toml" --font resources/fonts/MiSansVF.ttf --mono resources/fonts/KirkMono-Regular.ttf \
             --mono-license resources/fonts/KirkMono-OFL.txt --out "out/$name.img"
           echo "name=$name" >> "$GITHUB_OUTPUT"
-      # The image is the whole partition, flashed as it is, and most of it
-      # is the room the recovery leaves empty; it is handed out zipped.
+      - name: Verify the packed image and unchanged original fstab
+        env:
+          IMAGE: out/${{ steps.pack.outputs.name }}.img
+        run: |
+          python3 scripts/verify-rubens-image.py stock/recovery.img "$IMAGE"
+          for path in first_stage_ramdisk/fstab.mt6895 system/etc/recovery.fstab lib/modules/modules.load.recovery; do
+            tools/skyward-pack cat stock/recovery.img "$path" > /tmp/original-entry
+            tools/skyward-pack cat "$IMAGE" "$path" > /tmp/packed-entry
+            cmp /tmp/original-entry /tmp/packed-entry
+          done
+          tools/skyward-pack cat "$IMAGE" system/bin/recovery > /tmp/packed-recovery
+          cmp tools/skyward /tmp/packed-recovery
+          tools/skyward-pack cat "$IMAGE" skyward/device.toml > /tmp/packed-device.toml
+          cmp devices/rubens.toml /tmp/packed-device.toml
+      # The output is a full vendor_boot image. No device is flashed here.
       - name: Zip the image
         working-directory: out
         env:
@@ -196,7 +193,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           zips=()
-          for config in devices/*.toml; do
+          for config in devices/rubens.toml; do
             device=$(basename "$config" .toml)
             model=$(python3 -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["device"]["model"])' "$config")
             zip=$(ls images/skyward-"$GITHUB_REF_NAME"-"$device"-*.zip)

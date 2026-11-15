@@ -580,6 +580,9 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
         skyward_sys::kmsg(&format!("loaded {}", path.display()))?;
     }
     if !cfg.owners.is_empty() {
+        // Drivers can create their nodes shortly after loading. Keep the wait
+        // bounded so optional nodes absent on this phone still get skipped.
+        handover::wait_for_nodes(&cfg.owners, std::time::Duration::from_secs(5));
         let given = handover::give(&cfg.owners)?;
         skyward_sys::kmsg(&format!("{} of the phone's own files handed to the accounts its init gives them", given.handed))?;
         if !given.missing.is_empty() {
