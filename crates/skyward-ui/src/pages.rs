@@ -2893,7 +2893,11 @@ pub fn wlan(cx: &Ctx) -> Frame {
             y = widgets::footnote(&mut c, t, f, y, note)
         }
         Power::Failed(why) => y = widgets::footnote(&mut c, t, f, y, &tr!(l, "无法开启 WLAN：{why}", "無法開啟 Wi-Fi：{why}", "Couldn't turn on Wi-Fi: {why}")),
-        Power::Starting => y = widgets::footnote(&mut c, t, f, y, l.pick(["正在开启 WLAN", "正在開啟 Wi-Fi", "Turning on Wi-Fi"])),
+        Power::Starting => y = widgets::footnote(&mut c, t, f, y, l.pick([
+            "正在开启 WLAN，第一次开启可能要一分钟",
+            "正在開啟 Wi-Fi，第一次開啟可能要一分鐘",
+            "Turning on Wi-Fi. The first time can take a minute",
+        ])),
         Power::On => {
             let locked = |s: Security| !matches!(s, Security::Open | Security::Owe);
             // The network chosen stands out in the accent, as the stock

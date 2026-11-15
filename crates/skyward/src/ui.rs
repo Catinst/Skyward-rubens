@@ -1740,13 +1740,19 @@ impl<'a> Pages<'a> {
             if self.app.take_dirty() || !self.surface.is_on() {
                 let t0 = Instant::now();
                 self.app.compose(&mut self.screen, &self.fonts, &self.info, &self.shown_clock, now);
+                let drawn = t0.elapsed();
                 self.surface.present(&self.screen)?;
                 // A frame over the panel's own time is a frame the eye sees
-                // late: say so where it can be read, rather than to the void
-                // the service's stderr goes to.
-                let took = t0.elapsed().as_millis();
-                if took > 20 {
-                    let _ = skyward_sys::kmsg(&format!("frame {:?} took {took} ms", self.app.screen()));
+                // late: say where it went where it can be read, rather than to
+                // the void the service's stderr goes to.
+                let on_panel = t0.elapsed();
+                if on_panel.as_millis() > 20 {
+                    let _ = skyward_sys::kmsg(&format!(
+                        "frame {:?}: drawn in {} ms, on the panel in {} ms",
+                        self.app.screen(),
+                        drawn.as_millis(),
+                        on_panel.as_millis()
+                    ));
                 }
                 if let Some(path) = self.dump {
                     fs::write(path, &self.screen.data).with_context(|| format!("write {}", path.display()))?;
