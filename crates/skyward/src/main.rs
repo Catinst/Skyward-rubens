@@ -905,12 +905,11 @@ fn prepare(cfg: &DeviceConfig, slot: skyward_vab::Slot) -> Result<Vec<skyward_co
                 skyward_sys::kmsg(&format!("recovery libraries not prepared: {e:#}"))?;
                 return Ok(Vec::new());
             }
-            if !cfg.device.recovery_executables.is_empty() {
-                if let Err(e) = recovery_libraries::copy(&cfg.device.recovery_executables, Path::new(RECOVERY_EXECUTABLES)) {
+            if !cfg.device.recovery_executables.is_empty()
+                && let Err(e) = recovery_libraries::copy(&cfg.device.recovery_executables, Path::new(RECOVERY_EXECUTABLES)) {
                     skyward_sys::kmsg(&format!("recovery executables not prepared: {e:#}"))?;
                     return Ok(Vec::new());
                 }
-            }
             let steps = found.as_ref().ok().and_then(|found| found.steps.as_deref().ok());
             let programs = steps.map(keys::programs).unwrap_or_default();
             // Without them the screen still shows and the keys still work,
