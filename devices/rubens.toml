@@ -9,16 +9,30 @@ soc = { hans = "天玑 8100", hant = "天璣 8100", en = "Dimensity 8100" }
 os_version_prop = "ro.mi.os.version.incremental"
 recovery_partition = "vendor_boot"
 restart_service_directory = false
-# KernelSU magic-mounts the installed system partition's /system/lib64/
-# files into the recovery rootfs before servicemanager starts, providing
-# libc++, libvintf, libvndksupport, android.hidl.token, etc. — the correct
-# versions that the installed system's servicemanager binary was built
-# against. The only library still absent is libbinder.so, which the
-# installed Android 15 system's copy depends on libutils symbols that the
-# original recovery ramdisk lacks. The VNDK31 APEX (mounted by
-# secure::libraries()) supplies a compatible copy.
+# Libraries the original recovery ramdisk lacks, copied to /system/lib64/
+# at runtime by recovery_libraries::copy() during prepare(). These are
+# sourced from the mounted super partitions (/mnt/system/system is where
+# skyward_vab::mount_partitions mounts system_a) so they carry no extra
+# cost on the initrd size or the 64 MiB combined-initrd limit.
+#
+# libbinder.so: the installed Android 15 copy depends on libutils move-
+#   constructor symbols absent from the original recovery ramdisk; the
+#   VNDK31 APEX supplies a compatible copy.
+# libc++.so: the original recovery carries a stripped build that lacks
+#   several C++ vtables (e.g. basic_stringstream) that the installed
+#   system's servicemanager and libvintf need.
+# libvndksupport.so: needed by the VNDK31 libutils when it is loaded via
+#   LD_LIBRARY_PATH by services that explicitly request the APEX path; not
+#   needed when the recovery loads libutils from /system/lib64 directly,
+#   but harmless to have.
+# libvintf.so, android.hidl.token@1.0.so: absent from the original
+#   recovery ramdisk; needed by servicemanager and hwservicemanager.
 recovery_libraries = [
   "/apex/com.android.vndk.v31/lib64/libbinder.so",
+  "/mnt/system/system/lib64/libc++.so",
+  "/mnt/system/system/lib64/libvndksupport.so",
+  "/mnt/system/system/lib64/libvintf.so",
+  "/mnt/system/system/lib64/android.hidl.token@1.0.so",
 ]
 
 [display]

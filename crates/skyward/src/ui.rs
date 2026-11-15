@@ -1283,7 +1283,11 @@ impl<'a> Pages<'a> {
         let inputs = Inputs::open(w, h, cfg.touch.writes.clone())?;
         let started = Instant::now();
         let control = Control::open()?;
-        let haptics = cfg.haptics.as_ref().map(Haptics::open).transpose()?;
+        let haptics = cfg.haptics.as_ref().and_then(|h| {
+            Haptics::open(h)
+                .inspect_err(|e| { let _ = skyward_sys::kmsg(&format!("haptics not available: {e:#}")); })
+                .ok()
+        });
         let backlight = Backlight::open()?;
         let first = match &request.work {
             Work::Fastboot => Screen::Fastboot,

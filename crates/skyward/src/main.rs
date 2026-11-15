@@ -547,33 +547,12 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
     // are reached by, and the phone's init may have mounted it only to
     // reset the data partition.
     skyward_binder::driver::mount().context("mount the binder driver's filesystem")?;
-    // The recovery's init leaves the service directory stopped; the
-    // phone's own programs register with it, and the directory has to be
-    // told what they are before they start.
-    //
-    // On devices where KernelSU magic-mounts the installed system into
-    // the recovery rootfs, the service directory binary only links after
-    // those bind mounts are in place. init retries it on its own, so
-    // sending ctl.start is enough; a 30-second poll waits until the
-    // directory is reachable via binder rather than just "running" in
-    // init's view, which can be satisfied by a launch that immediately
-    // crashes and starts again.
+    // Ask init to start the service directory now; it will keep retrying on
+    // its own if the binary crashes. The wait for it to be reachable comes
+    // later, after modules are loaded, so the haptic and touchscreen drivers
+    // are in place regardless of how long the directory takes to settle.
     if crate::services::running("/system/bin/servicemanager").is_none() {
         skyward_sys::set_prop("ctl.start", "servicemanager").context("start the service directory")?;
-    }
-    {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-        loop {
-            if crate::services::running("/system/bin/servicemanager").is_some()
-                && crate::services::reachable()
-            {
-                break;
-            }
-            if std::time::Instant::now() >= deadline {
-                anyhow::bail!("the service directory was not reachable in 30 seconds");
-            }
-            std::thread::sleep(std::time::Duration::from_millis(500));
-        }
     }
     let nodes = skyward_sys::ueventd::apply()?;
     skyward_sys::kmsg(&format!("{nodes} device nodes given the owner their phone describes"))?;
@@ -609,6 +588,24 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
         skyward_sys::kmsg(&format!("{} of the phone's own files handed to the accounts its init gives them", given.handed))?;
         if !given.missing.is_empty() {
             skyward_sys::kmsg(&format!("{} of them the kernel made none of this boot: {}", given.missing.len(), given.missing.join(", ")))?;
+        }
+    }
+    // Now that modules are loaded (haptic, touchscreen, etc.) wait for the
+    // service directory to be reachable via binder. On devices where
+    // KernelSU magic-mounts system libraries, this takes up to ~30 seconds
+    // as init retries the binary until its linker dependencies are in place.
+    {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        loop {
+            if crate::services::running("/system/bin/servicemanager").is_some()
+                && crate::services::reachable()
+            {
+                break;
+            }
+            if std::time::Instant::now() >= deadline {
+                anyhow::bail!("the service directory was not reachable in 30 seconds");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
     }
     // What the phone describes is known wherever its partitions could be
