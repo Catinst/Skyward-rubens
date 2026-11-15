@@ -27,10 +27,14 @@ restart_service_directory = false
 #   but harmless to have.
 # libvintf.so, android.hidl.token@1.0.so: absent from the original
 #   recovery ramdisk; needed by servicemanager and hwservicemanager.
+# libbase.so: the recovery ramdisk's copy is built without {fmt} v10
+#   support; the system's libvintf.so references fmt::v10::vformat which
+#   the recovery copy does not export.
 recovery_libraries = [
   "/apex/com.android.vndk.v31/lib64/libbinder.so",
   "/mnt/system/system/lib64/libc++.so",
   "/mnt/system/system/lib64/libvndksupport.so",
+  "/mnt/system/system/lib64/libbase.so",
   "/mnt/system/system/lib64/libvintf.so",
   "/mnt/system/system/lib64/android.hidl.token@1.0.so",
 ]
