@@ -43,6 +43,7 @@ restart_service_directory = false
 #   absent from the recovery ramdisk.
 recovery_libraries = [
   "/mnt/system/system/lib64/libbinder.so",
+  "/mnt/system/system/lib64/libutils.so",
   "/mnt/system/system/lib64/libapexsupport.so",
   "/mnt/system/system/lib64/bootstrap/libdl_android.so",
   "/mnt/system/system/lib64/libc++.so",
