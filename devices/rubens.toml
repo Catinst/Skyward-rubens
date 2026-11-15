@@ -44,7 +44,7 @@ restart_service_directory = false
 recovery_libraries = [
   "/mnt/system/system/lib64/libbinder.so",
   "/mnt/system/system/lib64/libapexsupport.so",
-  "/mnt/system/system/lib64/libdl_android.so",
+  "/mnt/system/system/lib64/bootstrap/libdl_android.so",
   "/mnt/system/system/lib64/libc++.so",
   "/mnt/system/system/lib64/libvndksupport.so",
   "/mnt/system/system/lib64/libbase.so",
