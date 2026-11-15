@@ -1,15 +1,21 @@
 use anyhow::{bail, Context, Result};
 
-/// Strict mode gathers violations rather than acting on them. The receiver
-/// reads the work-source field that follows only if bit 6 (STRICT_MODE_PENALTY_GATHER
-/// in Android libbinder, 1 << 6 = 0x40) is set. All other bits are reserved for
-/// strict-mode policy flags; a caller with no policy of its own leaves them zero.
-/// Bit 31 is not meaningful here; the value that matters for interoperability is
-/// just 0x40 (bit 6 set, all else zero).
-const STRICT_MODE_PENALTY_GATHER: i32 = 1 << 6;
+/// Strict mode gathers violations rather than acting on them, which is the
+/// top bit of the strict-mode policy libbinder writes first in a call's
+/// header. A caller with no policy of its own writes that bit alone.
+const STRICT_MODE_PENALTY_GATHER: i32 = 1 << 31;
 
 /// The work source a caller passes on when it has none to pass on.
 const UNSET_WORK_SOURCE: i32 = -1;
+
+/// The word libbinder writes after the work source, naming the copy of
+/// itself that laid the call out: the receiver compares it with its own and
+/// turns the call away rather than read on where they differ, as they do
+/// between a phone's system, its vendor and its recovery. The word a call
+/// carries therefore has to be the one the far side was built with.
+const HEADER_SYSTEM: i32 = i32::from_be_bytes(*b"SYST");
+const HEADER_VENDOR: i32 = i32::from_be_bytes(*b"VNDR");
+const HEADER_RECOVERY: i32 = i32::from_be_bytes(*b"RECO");
 
 /// An object in the sending process, as a transaction carries it to the
 /// process it is sent to, and one of the sending process's own, as it
@@ -71,23 +77,27 @@ impl Payload for Parcel {
 impl Parcel {
     /// A call to `interface`, opened with the header libbinder reads before
     /// it looks at anything the method itself takes. The format matches
-    /// Android libbinder's writeInterfaceToken: strict-mode (with the
-    /// work-source bit set), work-source UID, and the interface name as a
-    /// UTF-16 string. No stability marker is written; Android's
-    /// writeInterfaceToken does not include one and enforceInterface does
-    /// not read one.
+    /// Android libbinder's writeInterfaceToken: strict-mode, work-source
+    /// UID, the word naming the copy of libbinder that laid the call out,
+    /// and the interface name as a UTF-16 string. The system's copy is the
+    /// one the phone's own services are built with.
     pub fn call(interface: &str) -> Parcel {
+        Self::with_header(interface, HEADER_SYSTEM)
+    }
+
+    /// A call to a service built against the vendor copy of libbinder,
+    /// which names that copy in the header rather than the system's.
+    pub fn call_vendor(interface: &str) -> Parcel {
+        Self::with_header(interface, HEADER_VENDOR)
+    }
+
+    fn with_header(interface: &str, header: i32) -> Parcel {
         let mut p = Parcel::default();
         p.i32(STRICT_MODE_PENALTY_GATHER);
         p.i32(UNSET_WORK_SOURCE);
+        p.i32(header);
         p.string(interface);
         p
-    }
-
-    /// A call to a service built against the vendor copy of libbinder.
-    /// The header format is the same as for system services.
-    pub fn call_vendor(interface: &str) -> Parcel {
-        Self::call(interface)
     }
 
     pub fn bytes(&self) -> &[u8] {
@@ -256,10 +266,19 @@ impl<'a> Reader<'a> {
 
     /// The header a call opens with, which libbinder writes before what the
     /// method takes, and the interface it names. Matches Android libbinder's
-    /// writeInterfaceToken: strict-mode, work-source, and interface name.
+    /// writeInterfaceToken: strict-mode, work-source, the word naming the
+    /// copy of libbinder that laid the call out, and the interface name. A
+    /// call laid out by a copy that writes no such word is read as it is:
+    /// the word there is the length of the name, which no copy's name can
+    /// be mistaken for.
     pub fn call(&mut self) -> Result<String> {
         self.i32().context("read the caller's strict mode")?;
         self.i32().context("read the caller's work source")?;
+        let at = self.here();
+        let word = self.i32().context("read the header the call opens with")?;
+        if ![HEADER_SYSTEM, HEADER_VENDOR, HEADER_RECOVERY].contains(&word) {
+            self.go(at)?;
+        }
         self.string().context("read the interface called")
     }
 
@@ -317,8 +336,9 @@ mod tests {
     fn a_call_opens_with_the_header_and_the_interface_name() {
         let p = Parcel::call("a.b.IC");
         let mut r = Reader::new(p.bytes());
-        assert_eq!(r.i32().unwrap(), 1 << 6, "strict mode: bit 6 set so work source follows");
+        assert_eq!(r.i32().unwrap(), i32::MIN, "strict mode: the gather bit, which opens the header");
         assert_eq!(r.i32().unwrap(), -1, "no work source");
+        assert_eq!(r.i32().unwrap(), i32::from_be_bytes(*b"SYST"), "laid out by the system's copy of libbinder");
         assert_eq!(r.string().unwrap(), "a.b.IC");
         assert_eq!(r.here(), p.bytes().len(), "the header is all of it");
     }
@@ -331,6 +351,15 @@ mod tests {
         assert_eq!(read.call().unwrap(), "a.b.IC");
         assert_eq!(read.i32().unwrap(), 7, "what the method takes comes next");
         assert!(Reader::new(&[0; 4]).call().is_err(), "a call cut short");
+        // A call laid out by a copy that writes no word naming itself is
+        // read as it is, the name following the work source directly.
+        let mut older = Parcel::default();
+        older.i32(0);
+        older.i32(-1);
+        older.string("a.b.IC");
+        let mut read = Reader::new(older.bytes());
+        assert_eq!(read.call().unwrap(), "a.b.IC");
+        assert_eq!(read.here(), older.bytes().len());
     }
 
     #[test]
@@ -372,11 +401,12 @@ mod tests {
     }
 
     #[test]
-    fn a_vendor_call_has_the_same_format_as_a_system_call() {
+    fn a_vendor_call_names_the_vendor_copy_of_libbinder() {
         let p = Parcel::call_vendor("a.b.IC");
         let mut r = Reader::new(p.bytes());
-        assert_eq!(r.i32().unwrap(), 1 << 6, "strict mode: bit 6 set so work source follows");
+        assert_eq!(r.i32().unwrap(), i32::MIN, "strict mode: the gather bit, which opens the header");
         assert_eq!(r.i32().unwrap(), -1, "no work source");
+        assert_eq!(r.i32().unwrap(), i32::from_be_bytes(*b"VNDR"), "laid out by the vendor's copy of libbinder");
         assert_eq!(r.string().unwrap(), "a.b.IC");
     }
 
