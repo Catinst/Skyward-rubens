@@ -43,8 +43,10 @@ recovery_libraries = [
 [display]
 width = 1440
 height = 3200
-# The original recovery's prop.default, not the running ROM's override.
-density = 480
+# The panel's own mode, 1440 by 3200. The vendor partition's build.prop
+# gives persist.sys.miui_resolution = 1080,2400,420; the density is that
+# one's, at the panel's own width: 420 * 1440 / 1080 = 560.
+density = 560
 diagonal = 6.67
 fastest_refresh = false
 
@@ -52,20 +54,30 @@ fastest_refresh = false
 sources = ["vendor_boot", "vendor_dlkm", "vendor"]
 # Original modules.load.recovery already includes fts_touch_spi,
 # xiaomi_touch and panel-l11a-38-0a-0a-dsc-cmd. Haptics is on vendor_dlkm.
-load = ["haptic"]
+# The WLAN's driver chain is loaded with the phone starting, as the phone's
+# own init loads it: the assistant writes the chip's settings once its node
+# is there, and the chip's loader finds its own node before the programs
+# start.
+load = ["haptic", "wlan_drv_gen4m_6895"]
 # No unverified touchscreen sysfs writes.
 
 [haptics]
 resonance = "/sys/bus/i2c/drivers/awinic_haptic/1-005a/f0"
+# The driver keeps ten waveforms of the phone's own, wf_0 to wf_9; the
+# second is the stronger of the two clicks it keeps.
+click = 1
 strength = { lightest = 0.25, strongest = 1.0 }
 
 [wlan]
-modules = ["wlan_drv_gen4m_6895"]
+# The driver's modules are loaded with the phone starting (see [modules]).
+modules = []
+# The chip's first switch-on calibrates and takes a minute; it is switched
+# on while the phone starts, so that the page's switch finds the interface.
+warm_up = true
 nodes = [
   { user = "wifi", group = "wifi", mode = 0o660, paths = ["/dev/wmtWifi"] },
   { user = "system", group = "system", mode = 0o660, paths = ["/dev/conninfra_dev"] },
 ]
-mounts = [{ partition = "nvdata", at = "/mnt/vendor/nvdata" }]
 settings = { property = "vendor.mtk.nvram.ready", value = "1" }
 writes = [{ path = "/dev/wmtWifi", value = "1" }]
 attempts = 5
@@ -84,7 +96,9 @@ releases = "Catinst/Skyward-rubens"
 server = "https://update.miui.com/updates/miotaV3.php"
 
 [partitions]
-mounted = ["persist"]
+# nvdata holds the WLAN's own settings, which the assistant reads as the
+# driver comes up; the driver's write tells the chip to start.
+mounted = ["persist", "nvdata"]
 
 [logd]
 libraries = ["/mnt/system/system/lib64/libsysutils.so", "/mnt/system/system/lib64/libcap.so"]
@@ -158,6 +172,10 @@ path = "/vendor/bin/conninfra_loader"
 libraries = ["/system/lib64", "/vendor/lib64"]
 user = "system"
 groups = ["system"]
+# The phone's own init_conninfra.rc runs it once, as the driver's node is
+# there: it powers the connectivity part and writes the properties that
+# say it is up. Run again it crashes, so it is not started again.
+oneshot = true
 
 [[service]]
 path = "/vendor/bin/wlan_assistant"
@@ -188,6 +206,20 @@ user = "system"
 group = "system"
 mode = 0o660
 paths = ["/dev/0:0:0:49476", "/dev/rpmb0"]
+
+# Made by the WLAN driver's chain as it loads with the phone starting, and
+# opened by the assistant and the chip's loader under accounts of their own.
+[[owners]]
+user = "wifi"
+group = "wifi"
+mode = 0o660
+paths = ["/dev/wmtWifi"]
+
+[[owners]]
+user = "system"
+group = "system"
+mode = 0o660
+paths = ["/dev/conninfra_dev"]
 
 [backup]
 efs = ["nvdata", "nvcfg", "protect1", "protect2", "persist"]
