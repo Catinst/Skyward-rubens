@@ -1,10 +1,14 @@
 //! Prepare the libraries missing from the recovery before its services run.
 
 use anyhow::{Context, Result};
+use std::ffi::CString;
 use std::path::Path;
 
 /// Copy the named libraries atomically beside the recovery's own libraries.
 /// Renaming a fresh inode keeps a running program's old mapping valid.
+/// On Android, also copies the `security.selinux` xattr from the source so
+/// that the file's SELinux label allows domain transitions (some kernels
+/// enforce the entrypoint check even in permissive mode).
 pub fn copy(libraries: &[String], directory: &Path) -> Result<()> {
     for library in libraries {
         let from = Path::new(library);
@@ -15,6 +19,8 @@ pub fn copy(libraries: &[String], directory: &Path) -> Result<()> {
         part.push(".part");
         let prepared = (|| {
             std::fs::copy(from, &part).with_context(|| format!("copy {library} to {}", Path::new(&part).display()))?;
+            #[cfg(target_os = "android")]
+            copy_selinux_xattr(from, Path::new(&part));
             std::fs::rename(&part, &to).with_context(|| format!("put {} in place", to.display()))
         })();
         if prepared.is_err() {
@@ -23,6 +29,31 @@ pub fn copy(libraries: &[String], directory: &Path) -> Result<()> {
         prepared?;
     }
     Ok(())
+}
+
+#[cfg(target_os = "android")]
+fn copy_selinux_xattr(from: &Path, to: &Path) {
+    // Read the source file's security.selinux extended attribute.
+    let Ok(from_c) = CString::new(from.as_os_str().as_encoded_bytes()) else { return };
+    let Ok(attr_c) = CString::new("security.selinux") else { return };
+    // Determine the xattr value size first.
+    let len = unsafe { libc::lgetxattr(from_c.as_ptr(), attr_c.as_ptr(), std::ptr::null_mut(), 0) };
+    if len <= 0 {
+        return; // No xattr or error: skip.
+    }
+    let mut buf = vec![0u8; len as usize];
+    let got = unsafe {
+        libc::lgetxattr(from_c.as_ptr(), attr_c.as_ptr(), buf.as_mut_ptr().cast(), buf.len())
+    };
+    if got <= 0 {
+        return;
+    }
+    buf.truncate(got as usize);
+    // Write the xattr to the destination file.
+    let Ok(to_c) = CString::new(to.as_os_str().as_encoded_bytes()) else { return };
+    unsafe {
+        libc::lsetxattr(to_c.as_ptr(), attr_c.as_ptr(), buf.as_ptr().cast(), buf.len(), 0);
+    }
 }
 
 #[cfg(test)]
