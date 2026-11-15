@@ -333,6 +333,14 @@ pub struct Device {
     /// recovery's library folder before the programs start.
     #[serde(default)]
     pub recovery_libraries: Vec<String>,
+    /// Executables of the installed system the recovery's ramdisk carries
+    /// an older copy of, copied into /system/bin before the programs start.
+    /// The recovery's own servicemanager, built as an older Android version
+    /// than the installed system, can answer every call the recovery makes
+    /// with FAILED_TRANSACTION; replacing it with the installed system's
+    /// binary fixes that.
+    #[serde(default)]
+    pub recovery_executables: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -624,6 +632,11 @@ impl DeviceConfig {
             let path = Path::new(library);
             let plain = path.components().all(|c| matches!(c, std::path::Component::RootDir | std::path::Component::Normal(_)));
             ensure!(path.is_absolute() && plain && path.file_name().is_some(), "[device] recovery_libraries: {library} is not an absolute path to a file");
+        }
+        for executable in &cfg.device.recovery_executables {
+            let path = Path::new(executable);
+            let plain = path.components().all(|c| matches!(c, std::path::Component::RootDir | std::path::Component::Normal(_)));
+            ensure!(path.is_absolute() && plain && path.file_name().is_some(), "[device] recovery_executables: {executable} is not an absolute path to a file");
         }
         for s in cfg.services.iter().filter(|s| s.oneshot) {
             let waits = s.ready_property.is_some() || s.ready_service.is_some() || s.ready_hardware_service.is_some();

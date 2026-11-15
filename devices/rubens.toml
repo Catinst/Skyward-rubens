@@ -38,6 +38,13 @@ recovery_libraries = [
   "/mnt/system/system/lib64/libvintf.so",
   "/mnt/system/system/lib64/android.hidl.token@1.0.so",
 ]
+# The recovery ramdisk's servicemanager binary is from Android 12 (SDK 31)
+# and returns FAILED_TRANSACTION (0x80000001) for every binder call from
+# Skyward. The installed system's Android 15 binary is compatible with
+# Skyward's binder parcel format and is used instead.
+recovery_executables = [
+  "/mnt/system/system/bin/servicemanager",
+]
 
 [display]
 width = 1440

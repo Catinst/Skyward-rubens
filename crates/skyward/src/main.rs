@@ -676,6 +676,7 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
 /// The folder the recovery's own programs load their libraries from.
 #[cfg(target_os = "android")]
 const RECOVERY_LIBRARIES: &str = "/system/lib64";
+const RECOVERY_EXECUTABLES: &str = "/system/bin";
 
 /// Give the recovery's own logd the libraries of the installed system it
 /// loads, and start it at once rather than on init's next try, so that it
@@ -902,6 +903,12 @@ fn prepare(cfg: &DeviceConfig, slot: skyward_vab::Slot) -> Result<Vec<skyward_co
             if let Err(e) = recovery_libraries::copy(&cfg.device.recovery_libraries, Path::new(RECOVERY_LIBRARIES)) {
                 skyward_sys::kmsg(&format!("recovery libraries not prepared: {e:#}"))?;
                 return Ok(Vec::new());
+            }
+            if !cfg.device.recovery_executables.is_empty() {
+                if let Err(e) = recovery_libraries::copy(&cfg.device.recovery_executables, Path::new(RECOVERY_EXECUTABLES)) {
+                    skyward_sys::kmsg(&format!("recovery executables not prepared: {e:#}"))?;
+                    return Ok(Vec::new());
+                }
             }
             let steps = found.as_ref().ok().and_then(|found| found.steps.as_deref().ok());
             let programs = steps.map(keys::programs).unwrap_or_default();
