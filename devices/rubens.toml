@@ -41,12 +41,14 @@ recovery_libraries = [
 ]
 
 [display]
-width = 1440
-height = 3200
-# The panel's own mode, 1440 by 3200. The vendor partition's build.prop
-# gives persist.sys.miui_resolution = 1080,2400,420; the density is that
-# one's, at the panel's own width: 420 * 1440 / 1080 = 560.
-density = 560
+# The lower of the panel's modes, which the vendor partition's build.prop
+# starts the installed system in: persist.sys.miui_resolution = 1080,2400,420.
+# The pages are drawn at that many pixels and the panel scales them to its
+# own 1440 by 3200, so a frame is 43% of the work of one drawn at the
+# panel's size; the light is kept at the same size to the eye by the density.
+width = 1080
+height = 2400
+density = 420
 diagonal = 6.67
 fastest_refresh = false
 

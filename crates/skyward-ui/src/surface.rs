@@ -515,7 +515,7 @@ pub mod kms {
     }
 
     impl KmsSurface {
-        pub fn open(path: &str, fastest_refresh: bool) -> Result<Self> {
+        pub fn open(path: &str, fastest_refresh: bool, size: (u32, u32)) -> Result<Self> {
             let card = open_card(path)?;
             let res = card.resource_handles().context("read KMS resources")?;
 
@@ -533,16 +533,27 @@ pub mod kms {
                 .iter()
                 .find(|m| m.mode_type().contains(ModeTypeFlags::PREFERRED))
                 .ok_or_else(|| anyhow!("the panel reports no preferred mode"))?;
-            // The fastest refresh at the preferred size, the first listed among
-            // equals: Android scrolls at it, and the 13 Ultra's touch reports
-            // come at the same 120 Hz.
+            // The mode the panel comes up in: the size the phone's settings
+            // ask for, at its slowest refresh, where the panel has that size,
+            // and the panel's own preferred mode otherwise. The mode switched
+            // to after it is the fastest refresh at that size.
+            let coming_up = conn
+                .modes()
+                .iter()
+                .filter(|m| (m.size().0 as u32, m.size().1 as u32) == size)
+                .min_by_key(|m| m.vrefresh())
+                .copied()
+                .unwrap_or(*preferred);
+            // The fastest refresh at the size the panel comes up in, the
+            // first listed among equals: Android scrolls at it, and the 13
+            // Ultra's touch reports come at the same 120 Hz.
             let mode = *conn
                 .modes()
                 .iter()
-                .filter(|m| m.size() == preferred.size())
+                .filter(|m| m.size() == coming_up.size())
                 .rev()
                 .max_by_key(|m| m.vrefresh())
-                .expect("the preferred mode itself has the preferred size");
+                .expect("the mode the panel comes up in has the size it comes up in");
             let (w, h) = (mode.size().0 as u32, mode.size().1 as u32);
 
             // The CRTC already driving the panel, or the first one an
@@ -644,7 +655,7 @@ pub mod kms {
             }
             let crtc_props = Props::read(&card, crtc)?;
             let blob = card.create_property_blob(&mode).context("create mode blob")?;
-            let first = card.create_property_blob(preferred).context("create mode blob")?;
+            let first = card.create_property_blob(&coming_up).context("create mode blob")?;
             req.add_property(conn.handle(), conn_props.handle("CRTC_ID")?, property::Value::CRTC(Some(crtc)));
             // The mode is DSC-compressed: select its DSC variant, as Android's
             // compositor does.
@@ -709,7 +720,7 @@ pub mod kms {
             // The panel comes up in its preferred mode, then switches to the
             // fastest, as `to_fastest` says why.
             commit(&card, req, AtomicCommitFlags::ALLOW_MODESET).context("set the panel mode")?;
-            let fastest = (mode.vrefresh() != preferred.vrefresh()).then_some(blob);
+            let fastest = (mode.vrefresh() != coming_up.vrefresh()).then_some(blob);
 
             let ids: Vec<u32> = planes.iter().map(|p| u32::from(p.0)).collect();
             let summary = format!(
