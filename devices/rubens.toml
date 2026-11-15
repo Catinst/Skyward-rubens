@@ -10,11 +10,17 @@ os_version_prop = "ro.mi.os.version.incremental"
 recovery_partition = "vendor_boot"
 restart_service_directory = false
 # The original ramdisk omits the Binder/VINTF dependencies of its service
-# directories. Use the ABI-checked bundle, not the running Android 15 libs.
+# directories. These are sourced at runtime from the mounted VNDK APEX and
+# system partition rather than bundled in the ramdisk, so the combined
+# compressed initrd (vendor_boot + boot) stays under the bootloader limit.
+# prepare() calls secure::libraries() first, which mounts the VNDK31 APEX
+# at /apex/com.android.vndk.v31, then recovery_libraries::copy() runs.
+# libbinder.so is the VNDK31 copy (the installed system's Android 15 copy
+# depends on libutils symbols absent from the original recovery ramdisk).
 recovery_libraries = [
-  "/skyward/recovery-libs/libbinder.so",
-  "/skyward/recovery-libs/libvintf.so",
-  "/skyward/recovery-libs/android.hidl.token@1.0.so",
+  "/apex/com.android.vndk.v31/lib64/libbinder.so",
+  "/mnt/system/system/lib64/libvintf.so",
+  "/mnt/system/system/lib64/android.hidl.token@1.0.so",
 ]
 
 [display]

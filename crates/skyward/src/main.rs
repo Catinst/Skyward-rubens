@@ -860,14 +860,18 @@ fn prepare(cfg: &DeviceConfig, slot: skyward_vab::Slot) -> Result<Vec<skyward_co
             for m in &mounts.partitions {
                 skyward_sys::kmsg(&format!("mounted {} on {} ({})", m.partition, m.mount_point.display(), m.filesystem))?;
             }
+            // Open the VNDK bundle first: recovery_libraries paths may
+            // reference /apex/com.android.vndk.v<N>/lib64, which only
+            // exists once the bundle is mounted as a side effect here.
+            let found = secure::libraries().and_then(|libraries| keys::found(slot, libraries.as_deref()));
             // The recovery's own services can depend on libraries absent from
-            // its ramdisk. Prepare those before naming programs or starting
-            // the critical service directory. Failure must leave the UI usable.
+            // its ramdisk. Prepare those after the APEX is mounted so that
+            // paths inside /apex/... are accessible. Failure must leave the
+            // UI usable.
             if let Err(e) = recovery_libraries::copy(&cfg.device.recovery_libraries, Path::new(RECOVERY_LIBRARIES)) {
                 skyward_sys::kmsg(&format!("recovery libraries not prepared: {e:#}"))?;
                 return Ok(Vec::new());
             }
-            let found = secure::libraries().and_then(|libraries| keys::found(slot, libraries.as_deref()));
             let steps = found.as_ref().ok().and_then(|found| found.steps.as_deref().ok());
             let programs = steps.map(keys::programs).unwrap_or_default();
             // Without them the screen still shows and the keys still work,

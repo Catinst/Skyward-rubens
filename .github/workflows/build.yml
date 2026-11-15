@@ -131,13 +131,9 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = tag ]; then version="$GITHUB_REF_NAME"; else version="${GITHUB_SHA::7}"; fi
           name="skyward-$version-$DEVICE-$STOCK"
           mkdir out
-          (cd stock/rubens/recovery-libs && sha256sum --check SHA256SUMS)
           tools/skyward-pack recovery --stock stock/recovery.img --binary tools/skyward --system-init tools/system-init \
             --config "devices/$DEVICE.toml" --font resources/fonts/MiSansVF.ttf --mono resources/fonts/KirkMono-Regular.ttf \
             --mono-license resources/fonts/KirkMono-OFL.txt \
-            --add /skyward/recovery-libs/libbinder.so=stock/rubens/recovery-libs/libbinder.so \
-            --add /skyward/recovery-libs/libvintf.so=stock/rubens/recovery-libs/libvintf.so \
-            --add /skyward/recovery-libs/android.hidl.token@1.0.so=stock/rubens/recovery-libs/android.hidl.token@1.0.so \
             --out "out/$name.img"
           echo "name=$name" >> "$GITHUB_OUTPUT"
       - name: Verify the packed image and unchanged original fstab
@@ -154,10 +150,6 @@ jobs:
           cmp tools/skyward /tmp/packed-recovery
           tools/skyward-pack cat "$IMAGE" skyward/device.toml > /tmp/packed-device.toml
           cmp devices/rubens.toml /tmp/packed-device.toml
-          for library in libbinder.so libvintf.so android.hidl.token@1.0.so; do
-            tools/skyward-pack cat "$IMAGE" "skyward/recovery-libs/$library" > /tmp/packed-library
-            cmp "stock/rubens/recovery-libs/$library" /tmp/packed-library
-          done
       # The output is a full vendor_boot image. No device is flashed here.
       - name: Zip the image
         working-directory: out
