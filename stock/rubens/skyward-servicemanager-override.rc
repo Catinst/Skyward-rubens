@@ -1,19 +1,21 @@
 # Override servicemanager for Skyward recovery on rubens.
-# Change from the stock servicemanager.rc:
-#   Removes "critical" so a startup failure does not trigger an init
-#   reboot loop (the UI stays usable while initialization retries).
-#
-# No LD_LIBRARY_PATH override: KernelSU magic-mounts the installed
-# system partition's /system/lib64/ files (libc++, libvndksupport,
-# libvintf, etc.) into /system/lib64/ before servicemanager starts.
-# Those are the correct versions for the system's servicemanager binary.
-# Adding the VNDK31 APEX first in LD_LIBRARY_PATH was counterproductive
-# because the APEX libc++ lacks vtable entries that the binary needs.
+# Changes from the stock servicemanager.rc:
+#   1. Removes "critical" so a startup failure does not trigger an init
+#      reboot loop.
+#   2. Adds "seclabel u:r:servicemanager:s0" so that init accepts the
+#      binary even after Skyward replaces it at runtime with the installed
+#      system's Android 15 copy.  std::fs::copy does not carry over the
+#      SELinux xattr, so the copied binary lands with "u:object_r:rootfs:s0"
+#      which has no domain transition; init refuses to start any service
+#      whose binary lacks a valid transition, even in permissive mode.
+#      seclabel bypasses the file-context check and runs the service
+#      directly in the named domain.
 service servicemanager /system/bin/servicemanager
     override
     class core animation
     user system
     group system readproc
+    seclabel u:r:servicemanager:s0
     onrestart restart apexd
     onrestart restart audioserver
     onrestart restart gatekeeperd
