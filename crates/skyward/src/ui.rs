@@ -1758,7 +1758,7 @@ impl<'a> Pages<'a> {
                 if on_panel.as_millis() > 20 {
                     let d = self.app.drew_for;
                     let _ = skyward_sys::kmsg(&format!(
-                        "frame {:?}: drawn in {} ms (page {}, rendered {}, painted {}, over {}, charging {}, curtain {}; of the painting, the page {}, over it {}), on the panel in {} ms",
+                        "frame {:?}: drawn in {} ms (page {}, rendered {}, painted {}, over {}, charging {}, curtain {}; of the painting, the page {}, over it {}; of the hero, sampled {}, painted {}), on the panel in {} ms",
                         self.app.screen(),
                         drawn.as_millis(),
                         d[0],
@@ -1769,6 +1769,8 @@ impl<'a> Pages<'a> {
                         d[5],
                         d[6],
                         d[7],
+                        d[8],
+                        d[9],
                         on_panel.as_millis()
                     ));
                 }

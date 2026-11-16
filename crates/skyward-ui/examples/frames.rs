@@ -113,6 +113,11 @@ fn run(name: &str, f: &Fonts, i: &DeviceInfo, quiet: bool) {
             p.run(800);
             p.report("the search bar going back down");
         }
+        "specs" => {
+            let mut p = Panel::new(Screen::Specs, f, i, quiet);
+            p.run(200);
+            p.report("the all-parameters page settled");
+        }
         "about" => {
             let mut p = Panel::new(Screen::Settings, f, i, quiet);
             p.tap(Action::Open(Screen::About));
@@ -220,7 +225,7 @@ struct Panel<'a> {
     ms: Vec<f64>,
     /// The parts of the frames drawn since the last report, summed, and how
     /// many frames that was.
-    parts: [f64; 8],
+    parts: [f64; 10],
     drawn: u32,
     quiet: bool,
 }
@@ -230,7 +235,7 @@ impl<'a> Panel<'a> {
     fn new(screen: Screen, f: &'a Fonts, i: &'a DeviceInfo, quiet: bool) -> Panel<'a> {
         let mut app = App::new(screen, W, H, PPD);
         app.set_screen_corners(140.0);
-        let mut p = Panel { app, f, i, out: Canvas::new(W, H), us: 0, ms: Vec::new(), parts: [0.0; 8], drawn: 0, quiet };
+        let mut p = Panel { app, f, i, out: Canvas::new(W, H), us: 0, ms: Vec::new(), parts: [0.0; 10], drawn: 0, quiet };
         p.run(100);
         p.skip();
         p
@@ -355,6 +360,9 @@ impl<'a> Panel<'a> {
             p[6] / d,
             p[7] / d
         );
+        if p[8] != 0.0 || p[9] != 0.0 {
+            println!("  hero, average ms: field sampled {:.1}, field painted {:.1}", p[8] / d, p[9] / d);
+        }
         self.parts = [0.0; 8];
         self.drawn = 0;
         // A frame to look at, where someone asks where it goes, in the

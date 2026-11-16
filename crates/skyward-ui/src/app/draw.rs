@@ -384,9 +384,12 @@ impl App {
             let glow = self.glow.as_ref().expect("the About page keeps its field");
             let fade = (1.0 - scroll / m.dp(ABOUT_FIELD_DP)).clamp(0.0, 1.0);
             let top = (widgets::bar_bottom(t) + m.dp(ABOUT_FIELD_DP)) / m.h as f32;
+            let at = Instant::now();
             let field = glow::sample(glow, out.w as usize, out.h as usize, FIELD_CELL, top, t.pal.bg, fade);
+            self.drew_for[8] = at.elapsed().as_millis() as u32;
             let dither = self.dither.get_or_insert_with(|| glow::Dither::new(out.w as usize, out.h as usize));
             glow::paint(out, &field, fade, &glow::Layer { canvas: &frame.canvas, runs: &art.runs, offset: offset as isize }, dither);
+            self.drew_for[9] = (at.elapsed().as_millis() as u32).saturating_sub(self.drew_for[8]);
             press_row(out);
             let range = m.dp(ABOUT_LOGO_DP) - widgets::bar_bottom(t);
             let v = (scroll / range).clamp(0.0, 1.0);

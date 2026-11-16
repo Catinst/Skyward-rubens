@@ -1057,9 +1057,10 @@ pub struct App {
     /// The parts of the last frame drawn, in milliseconds, for whoever says
     /// how long it took: the page whole, what of it was rendered, what was
     /// painted onto the screen, what lies over every page, the charging
-    /// screen above it, the curtain over both, and of the painting the page
-    /// itself and what the page keeps over it.
-    pub drew_for: [u32; 8],
+    /// screen above it, the curtain over both, of the painting the page
+    /// itself and what the page keeps over it, and of the About page's
+    /// hero, its field sampled, and the field painted.
+    pub drew_for: [u32; 10],
     /// The pages open, the one shown last: each with how far it is
     /// scrolled and where the keys are on it.
     stack: Vec<(Screen, f32, Focus)>,
@@ -1205,7 +1206,7 @@ impl App {
     pub fn new(start: Screen, w: u32, h: u32, px_per_dp: f32) -> Self {
         App {
             state: State::default(),
-            drew_for: [0; 8],
+            drew_for: [0; 10],
             stack: vec![(start, 0.0, Focus::Unset)],
             frame: None,
             spots: None,
