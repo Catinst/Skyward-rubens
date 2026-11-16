@@ -64,6 +64,11 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Build the recovery service for the phone
         run: cargo ndk -t arm64-v8a --platform 30 build --locked --release -p skyward
+      # Times the frames the pages draw, on the phone itself: the same
+      # example the UI crate keeps for a computer's benchmark, built for the
+      # phone so the recovery's own hardware says what a frame costs.
+      - name: Build the frames benchmark for the phone
+        run: cargo ndk -t arm64-v8a --platform 30 build --locked --release -p skyward-ui --example frames
       # It runs as a second system's first program, before any library is
       # there to load.
       - name: Build the second system's first program, static
@@ -76,6 +81,7 @@ jobs:
         run: |
           mkdir tools
           cp target/aarch64-linux-android/release/skyward target/release/skyward-pack tools/
+          cp target/aarch64-linux-android/release/examples/frames tools/
           cp target/system-init/aarch64-linux-android/release/system-init tools/
       - uses: actions/upload-artifact@v7
         with:

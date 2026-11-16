@@ -218,6 +218,10 @@ struct Panel<'a> {
     out: Canvas,
     us: u64,
     ms: Vec<f64>,
+    /// The parts of the frames drawn since the last report, summed, and how
+    /// many frames that was.
+    parts: [f64; 8],
+    drawn: u32,
     quiet: bool,
 }
 
@@ -226,7 +230,7 @@ impl<'a> Panel<'a> {
     fn new(screen: Screen, f: &'a Fonts, i: &'a DeviceInfo, quiet: bool) -> Panel<'a> {
         let mut app = App::new(screen, W, H, PPD);
         app.set_screen_corners(140.0);
-        let mut p = Panel { app, f, i, out: Canvas::new(W, H), us: 0, ms: Vec::new(), quiet };
+        let mut p = Panel { app, f, i, out: Canvas::new(W, H), us: 0, ms: Vec::new(), parts: [0.0; 8], drawn: 0, quiet };
         p.run(100);
         p.skip();
         p
@@ -252,6 +256,10 @@ impl<'a> Panel<'a> {
             let t0 = Instant::now();
             self.app.compose(&mut self.out, self.f, self.i, "12:00", now);
             self.ms.push(t0.elapsed().as_secs_f64() * 1000.0);
+            for (k, part) in self.app.drew_for.iter().enumerate() {
+                self.parts[k] += *part as f64;
+            }
+            self.drawn += 1;
         }
     }
 
@@ -309,6 +317,8 @@ impl<'a> Panel<'a> {
 
     fn skip(&mut self) {
         self.ms.clear();
+        self.parts = [0.0; 8];
+        self.drawn = 0;
     }
 
     /// Print how long the frames drawn since the last report took.
@@ -332,6 +342,21 @@ impl<'a> Panel<'a> {
             at(0.9),
             at(1.0)
         );
+        let d = self.drawn.max(1) as f64;
+        let p = self.parts;
+        println!(
+            "  parts, average ms: page {:.1} (render {:.1}, paint {:.1}), over the page {:.1}, charging {:.1}, curtain {:.1}; of the paint, page {:.1}, over it {:.1}",
+            p[0] / d,
+            p[1] / d,
+            p[2] / d,
+            p[3] / d,
+            p[4] / d,
+            p[5] / d,
+            p[6] / d,
+            p[7] / d
+        );
+        self.parts = [0.0; 8];
+        self.drawn = 0;
     }
 }
 
@@ -339,6 +364,7 @@ fn info() -> DeviceInfo {
     DeviceInfo {
         model: "Xiaomi 13 Ultra".into(),
         codename: "ishtar".into(),
+        builder: None,
         soc: None,
         cpu: Cpu { cores: 8, max_khz: Some(3_187_200) },
         ram_kib: 15_556_972,
