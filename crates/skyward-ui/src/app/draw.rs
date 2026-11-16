@@ -3,6 +3,7 @@
 //! over the page.
 
 use super::*;
+use std::time::Instant;
 
 impl App {
     /// What the status bar shows, its clock reading `clock`: the battery,
@@ -165,14 +166,21 @@ impl App {
     /// while a cable has just gone in, both as dark as the content stands
     /// as the panel goes off or comes up.
     pub fn compose(&mut self, out: &mut Canvas, f: &Fonts, info: &DeviceInfo, clock: &str, now: u64) {
+        let started = Instant::now();
         let charge = self.charging.as_ref().map_or(0.0, |c| c.shown.level(now));
         if charge < 1.0 {
             self.compose_page(out, f, info, clock, now);
         }
+        let page = started.elapsed();
         if charge > 0.0 {
             self.compose_charging(out, f, info, charge, now);
         }
+        let charging = started.elapsed();
         out.dim(self.curtain.level(now));
+        let done = started.elapsed();
+        self.drew_for[0] = page.as_millis() as u32;
+        self.drew_for[4] = (charging - page).as_millis() as u32;
+        self.drew_for[5] = (done - charging).as_millis() as u32;
     }
 
     /// The charging screen, `level` of the way over the page drawn on `out`.
@@ -201,8 +209,10 @@ impl App {
     /// from an edge is under way.
     fn compose_page(&mut self, out: &mut Canvas, f: &Fonts, info: &DeviceInfo, clock: &str, now: u64) {
         // A page opened is drawn from its left edge as it slides in.
+        let at = Instant::now();
         let opening = self.turn.as_ref().is_some_and(|t| !t.back);
         self.render(f, info, if opening { 0 } else { self.w });
+        self.drew_for[1] = at.elapsed().as_millis() as u32;
         let screen = self.screen();
         let scroll = self.top().1;
         let offset = (scroll + self.overscroll(now)).round();
@@ -318,6 +328,7 @@ impl App {
             }
         }
         self.shown = Some(view);
+        self.drew_for[2] = (at.elapsed().as_millis() as u32).saturating_sub(self.drew_for[1]);
 
         widgets::status_bar(out, &t, f, &self.bar(clock, info), t.pal.status);
         if let Some((text, _)) = &self.toast {
@@ -334,6 +345,7 @@ impl App {
                 }
             }
         }
+        self.drew_for[3] = (at.elapsed().as_millis() as u32).saturating_sub(self.drew_for[1] + self.drew_for[2]);
     }
 
     /// Draw the page shown as `view` has it: all of it but the status bar,

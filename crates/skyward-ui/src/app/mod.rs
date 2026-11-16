@@ -1054,6 +1054,11 @@ fn keyboard_strip(t: &Theme, frame: &Frame) -> (Canvas, i32) {
 
 pub struct App {
     pub state: State,
+    /// The parts of the last frame drawn, in milliseconds, for whoever says
+    /// how long it took: the page whole, what of it was rendered, what was
+    /// painted onto the screen, what lies over every page, the charging
+    /// screen above it, and the curtain over both.
+    pub drew_for: [u32; 6],
     /// The pages open, the one shown last: each with how far it is
     /// scrolled and where the keys are on it.
     stack: Vec<(Screen, f32, Focus)>,
@@ -1199,6 +1204,7 @@ impl App {
     pub fn new(start: Screen, w: u32, h: u32, px_per_dp: f32) -> Self {
         App {
             state: State::default(),
+            drew_for: [0; 6],
             stack: vec![(start, 0.0, Focus::Unset)],
             frame: None,
             spots: None,
