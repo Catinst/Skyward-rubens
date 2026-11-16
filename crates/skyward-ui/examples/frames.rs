@@ -322,7 +322,7 @@ impl<'a> Panel<'a> {
 
     fn skip(&mut self) {
         self.ms.clear();
-        self.parts = [0.0; 8];
+        self.parts = [0.0; 10];
         self.drawn = 0;
     }
 
@@ -363,7 +363,7 @@ impl<'a> Panel<'a> {
         if p[8] != 0.0 || p[9] != 0.0 {
             println!("  hero, average ms: field sampled {:.1}, field painted {:.1}", p[8] / d, p[9] / d);
         }
-        self.parts = [0.0; 8];
+        self.parts = [0.0; 10];
         self.drawn = 0;
         // A frame to look at, where someone asks where it goes, in the
         // canvas's own bytes: four to a pixel, red first.
