@@ -1747,33 +1747,8 @@ impl<'a> Pages<'a> {
         if panel.is_some() {
             // A display turned off comes on again with a frame drawn for it.
             if self.app.take_dirty() || !self.surface.is_on() {
-                let t0 = Instant::now();
                 self.app.compose(&mut self.screen, &self.fonts, &self.info, &self.shown_clock, now);
-                let drawn = t0.elapsed();
                 self.surface.present(&self.screen)?;
-                // A frame over the panel's own time is a frame the eye sees
-                // late: say where it went where it can be read, rather than to
-                // the void the service's stderr goes to.
-                let on_panel = t0.elapsed();
-                if on_panel.as_millis() > 20 {
-                    let d = self.app.drew_for;
-                    let _ = skyward_sys::kmsg(&format!(
-                        "frame {:?}: drawn in {} ms (page {}, rendered {}, painted {}, over {}, charging {}, curtain {}; of the painting, the page {}, over it {}; of the hero, sampled {}, painted {}), on the panel in {} ms",
-                        self.app.screen(),
-                        drawn.as_millis(),
-                        d[0],
-                        d[1],
-                        d[2],
-                        d[3],
-                        d[4],
-                        d[5],
-                        d[6],
-                        d[7],
-                        d[8],
-                        d[9],
-                        on_panel.as_millis()
-                    ));
-                }
                 if let Some(path) = self.dump {
                     fs::write(path, &self.screen.data).with_context(|| format!("write {}", path.display()))?;
                 }
