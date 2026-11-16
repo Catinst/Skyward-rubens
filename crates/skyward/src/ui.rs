@@ -1707,7 +1707,16 @@ impl<'a> Pages<'a> {
                     {
                         plug(&mut self.app, &self.info.battery, &battery, now)?;
                         self.info.battery = battery;
-                        self.app.refresh();
+                        // The status bar shows the battery on every frame it
+                        // draws, so composing again is all it takes; the
+                        // all-parameters page shows it too, and is drawn over
+                        // for it. No other page is drawn again for a tenth of
+                        // a degree.
+                        if self.app.screen() == Screen::Specs {
+                            self.app.refresh();
+                        } else {
+                            self.app.redraw();
+                        }
                     }
                 }
                 Reading::All(all, at) => {

@@ -419,8 +419,9 @@ fn field_span(px: &mut [[u8; 4]], noise: &[i8], x0: usize, cell: usize, start: &
         let noises = &noise[x - x0..end - x0];
         // The field is soft: two pixels side by side are the same colour,
         // so one of the pair is worked out and written both ways.
-        for (n, (pair, d)) in span.chunks_exact_mut(2).zip(noises.chunks_exact(2)).enumerate() {
-            let pair: &mut [[u8; 4]; 2] = pair.try_into().expect("two of the pair");
+        let (pairs, rest) = span.as_chunks_mut::<2>();
+        let (noise_pairs, _) = noises.as_chunks::<2>();
+        for (n, (pair, d)) in pairs.iter_mut().zip(noise_pairs).enumerate() {
             let (k, d) = (from + (2 * n) as i32, d[0] as i32 * shade);
             let px = [
                 ((s[0] + st[0] * k + d) >> 16).clamp(0, 255) as u8,
@@ -431,10 +432,10 @@ fn field_span(px: &mut [[u8; 4]], noise: &[i8], x0: usize, cell: usize, start: &
             pair[0] = px;
             pair[1] = px;
         }
-        if span.len() % 2 == 1 {
+        if let Some(last) = rest.first_mut() {
             let n = span.len() - 1;
             let (k, d) = (from + n as i32, noises[n] as i32 * shade);
-            span[n] = [
+            *last = [
                 ((s[0] + st[0] * k + d) >> 16).clamp(0, 255) as u8,
                 ((s[1] + st[1] * k + d) >> 16).clamp(0, 255) as u8,
                 ((s[2] + st[2] * k + d) >> 16).clamp(0, 255) as u8,
