@@ -268,12 +268,20 @@ impl Canvas {
 
     /// Dim this opaque canvas toward black, keeping `level` of its light.
     pub fn dim(&mut self, level: f32) {
-        let keep = (level.clamp(0.0, 1.0) * 256.0).round() as u32;
+        let keep = (level.clamp(0.0, 1.0) * 256.0).round() as u64;
         if keep >= 256 {
             return;
         }
-        for p in self.data.as_chunks_mut::<4>().0 {
-            *p = darken(*p, keep);
+        // Two pixels at a time: their reds and blues travel as one word, as
+        // do their greens, the lanes of each staying under a word's own.
+        const RB: u64 = 0x00ff_00ff_00ff_00ff;
+        const G: u64 = 0x0000_ff00_0000_ff00;
+        const OPAQUE: u64 = 0xff00_0000_ff00_0000;
+        for pair in self.data.as_chunks_mut::<8>().0 {
+            let v = u64::from_le_bytes(*pair);
+            let rb = (((v & RB) * keep) >> 8) & RB;
+            let g = ((((v >> 8) & G) * keep) >> 8) & G;
+            *pair = (rb | g | OPAQUE).to_le_bytes();
         }
     }
 

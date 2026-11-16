@@ -382,10 +382,17 @@ pub fn paint(out: &mut Canvas, field: &Field, fade: f32, layer: &Layer, dither: 
     let mut step = vec![[0i32; 3]; field.cols - 1];
     // A dither value in sixteenths times this gives 16.16 fixed point.
     let shade = (fade * 4096.0).round() as i32;
+    // The field is soft: a pixel of it stands for the two beside it and the
+    // two below, which say the same colour to the eye and leave three
+    // quarters of the work, so a row of it is worked out for every other row
+    // of the screen and each pixel written four ways.
+    let mut held: Vec<[u8; 4]> = vec![[0; 4]; w];
     for (y, row) in out.data.chunks_exact_mut(w * 4).enumerate() {
-        field.row(y, &mut start, &mut step);
+        if y % 2 == 0 {
+            field.row(y, &mut start, &mut step);
+            field_row(&mut held, &dither.steps[y * w..(y + 1) * w], field.cell, &start, &step, shade);
+        }
         let row = row.as_chunks_mut::<4>().0;
-        let noise = &dither.steps[y * w..(y + 1) * w];
         let py = y as isize + layer.offset;
         let inside = usize::try_from(py).ok().filter(|&p| p < layer.runs.len());
         let runs: &[Run] = inside.map_or(&clear, |p| &layer.runs[p]);
@@ -396,12 +403,36 @@ pub fn paint(out: &mut Canvas, field: &Field, fade: f32, layer: &Layer, dither: 
             match (run.cover, src) {
                 (Cover::Solid, Some(src)) => px.copy_from_slice(&src[x0..x1]),
                 (Cover::Partial, Some(src)) => {
-                    field_span(px, &noise[x0..x1], x0, field.cell, &start, &step, shade);
+                    px.copy_from_slice(&held[x0..x1]);
                     lay_span(px, &src[x0..x1]);
                 }
-                _ => field_span(px, &noise[x0..x1], x0, field.cell, &start, &step, shade),
+                _ => px.copy_from_slice(&held[x0..x1]),
             }
         }
+    }
+}
+
+/// A row of the field as pixels, each standing for the pixel beside it: the
+/// field is soft enough that the pair are the same colour.
+fn field_row(out: &mut [[u8; 4]], noise: &[i8], cell: usize, start: &[[i32; 3]], step: &[[i32; 3]], shade: i32) {
+    let w = out.len();
+    let mut x = 0;
+    while x < w {
+        let i = (x / cell).min(start.len() - 1);
+        let (s, st) = (start[i], step[i]);
+        let k = (x - i * cell) as i32;
+        let d = noise[x] as i32 * shade;
+        let px = [
+            ((s[0] + st[0] * k + d) >> 16).clamp(0, 255) as u8,
+            ((s[1] + st[1] * k + d) >> 16).clamp(0, 255) as u8,
+            ((s[2] + st[2] * k + d) >> 16).clamp(0, 255) as u8,
+            255,
+        ];
+        out[x] = px;
+        if x + 1 < w {
+            out[x + 1] = px;
+        }
+        x += 2;
     }
 }
 
