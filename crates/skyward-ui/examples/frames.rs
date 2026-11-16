@@ -381,7 +381,7 @@ fn info() -> DeviceInfo {
     DeviceInfo {
         model: "Xiaomi 13 Ultra".into(),
         codename: "ishtar".into(),
-        builder: None,
+        builder: std::env::var("FRAMES_BUILDER").ok(),
         soc: None,
         cpu: Cpu { cores: 8, max_khz: Some(3_187_200) },
         ram_kib: 15_556_972,
