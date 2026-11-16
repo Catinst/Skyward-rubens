@@ -94,6 +94,8 @@ probe = "http://connect.rom.miui.com/generate_204"
 # No [stock] OTA URL: this build uses the supplied OS1 image, not the OS2 OTA.
 [skyward]
 releases = "Catinst/Skyward-rubens"
+# Who built this fork, named on the all-parameters page beside the version.
+builder = "Snownights"
 
 [update]
 server = "https://update.miui.com/updates/miotaV3.php"

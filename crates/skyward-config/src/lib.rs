@@ -211,6 +211,11 @@ pub struct Firmware {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Skyward {
     pub releases: String,
+    /// Who built this recovery, as the all-parameters page names them
+    /// beside the version: a fork names its own builder where the project's
+    /// own name would say nothing of it.
+    #[serde(default)]
+    pub builder: Option<String>,
 }
 
 /// The phone maker's update server, which the stock updater asks about the

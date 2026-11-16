@@ -547,6 +547,9 @@ const OS_VERSION: Text = ["OS 版本", "OS 版本", "OS version"];
 const ANDROID_VERSION: Text = ["Android 版本", "Android 版本", "Android version"];
 const CURRENT_SLOT: Text = ["当前槽位", "目前槽位", "Current slot"];
 const DATA_PART: Text = ["data 分区", "data 分割區", "data partition"];
+/// Who built the recovery, said beside the version on the all-parameters
+/// page; what follows it is the builder's name, "by" and then them.
+const BUILT_BY: Text = ["构建", "構建", "Build"];
 
 /// The phone's processor by its marketing name in `l`, from the phone's
 /// settings, or else by its cores.
@@ -628,10 +631,12 @@ pub fn specs(cx: &Ctx) -> Frame {
     if let Some(r) = &i.android {
         y = widgets::info_card(&mut c, t, f, y + gap, &[(l.pick(ANDROID_VERSION), fmt::android(l, r, i.security_patch.as_ref()))]);
     }
-    y = widgets::info_card(&mut c, t, f, y + gap, &[
-        (l.pick(["Recovery 版本", "Recovery 版本", "Recovery version"]), format!("Skyward {VERSION}")),
-        (l.pick(["内核版本", "核心版本", "Kernel version"]), i.kernel.clone()),
-    ]);
+    let mut recovery = vec![(l.pick(["Recovery 版本", "Recovery 版本", "Recovery version"]), format!("Skyward {VERSION}"))];
+    if let Some(builder) = &i.builder {
+        recovery.push((l.pick(BUILT_BY), format!("by {builder}")));
+    }
+    recovery.push((l.pick(["内核版本", "核心版本", "Kernel version"]), i.kernel.clone()));
+    y = widgets::info_card(&mut c, t, f, y + gap, &recovery);
 
     let mut boot = Vec::new();
     if let Some(s) = i.slot {

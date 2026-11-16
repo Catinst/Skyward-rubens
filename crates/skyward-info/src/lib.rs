@@ -29,6 +29,8 @@ const SYS_BLOCK: &str = "/sys/class/block";
 pub struct DeviceInfo {
     pub model: String,
     pub codename: String,
+    /// Who built the recovery, where its configuration names a builder.
+    pub builder: Option<String>,
     pub soc: Option<skyward_config::Names>,
     pub cpu: Cpu,
     /// `MemTotal` in KiB.
@@ -158,6 +160,7 @@ pub fn collect_with(cfg: &DeviceConfig, battery: Option<Battery>) -> Result<Devi
         // system whose partitions are not mounted.
         model: system.get("ro.product.marketname").unwrap_or_else(|| cfg.device.model.clone()),
         codename: cfg.device.codename.clone(),
+        builder: cfg.skyward.as_ref().and_then(|s| s.builder.clone()),
         soc: cfg.device.soc.clone(),
         cpu: cpu(Path::new(CPU))?,
         ram_kib: mem_total(&read("/proc/meminfo")?)?,
