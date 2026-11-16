@@ -91,6 +91,16 @@ enum Cmd {
         #[arg(long, default_value = "/skyward/device.toml")]
         config: String,
     },
+    /// Serve file transfer over USB as the file transfer switch does, and
+    /// say what the computer does while it stays: for watching one.
+    #[cfg(target_os = "android")]
+    Mtp {
+        #[arg(long, default_value = "/skyward/device.toml")]
+        config: String,
+        /// The folder the computer's storage shows: user 0's by default.
+        #[arg(long, default_value = "/sdcard")]
+        folder: PathBuf,
+    },
     /// Run as the recovery service (what init starts as /system/bin/recovery).
     Recovery,
     /// Reboot through init: system, recovery, fastboot, bootloader, edl, or
@@ -271,6 +281,8 @@ fn main() -> Result<()> {
             println!("{} is up, at {mac}", wlan.interface);
             Ok(())
         }
+        #[cfg(target_os = "android")]
+        Cmd::Mtp { config, folder } => mtp(&config, &folder),
         Cmd::Recovery => recovery(),
         Cmd::Reboot { target } => {
             let p = Power::parse(&target).ok_or_else(|| anyhow!("unknown target {target:?}"))?;
@@ -473,6 +485,30 @@ fn main() -> Result<()> {
             }
             ui::run(&cfg, &programs, &font, &mono, bcb::Request::default(), start, dump.as_deref())
         }
+    }
+}
+
+/// Serve file transfer over USB as the file transfer switch does, until
+/// this program ends: for watching what a computer asks of it.
+#[cfg(target_os = "android")]
+fn mtp(config: &str, folder: &Path) -> Result<()> {
+    let cfg = DeviceConfig::load(config)?;
+    let info = skyward_info::collect(&cfg)?;
+    let device = skyward_mtp::Device {
+        manufacturer: cfg.device.brand.clone(),
+        model: info.model.clone(),
+        version: format!("Skyward {}", skyward_info::VERSION),
+        serial: skyward_sys::prop("ro.serialno").unwrap_or_default(),
+        name: info.model.clone(),
+        battery: Box::new(|| skyward_info::battery_now().ok().flatten().map(|b| b.level)),
+    };
+    let service = skyward_mtp::Service::start(device, skyward_ui::fmt::rules(0).clone())?;
+    skyward_sys::usb::set_mtp(true);
+    skyward_sys::usb::set("mtp,adb", std::time::Duration::from_secs(5))?;
+    service.offer(Some(skyward_mtp::Storage { top: folder.to_path_buf(), description: "Internal storage".into() }))?;
+    println!("file transfer serves {} while this runs", folder.display());
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(60));
     }
 }
 
