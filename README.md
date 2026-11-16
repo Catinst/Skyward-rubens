@@ -87,55 +87,51 @@ read and set properties.
 
 ## Supported devices
 
-| Device | Codename | Tested system version |
-| --- | --- | --- |
-| Xiaomi 17 Ultra | `nezha` | OS4.0.4.0.XPACNXM (Android 17) |
-| Xiaomi 13 Ultra | `ishtar` | OS3.0.308.0.WMACNXM (Android 16) |
-
-### 🚧 Under construction
-
-These images are built from each phone's stock firmware and have not been tried
-on the phone. They set up the screen, touch, Wi-Fi and vibration. The programs that
-decrypting the data partition takes are read on the phone from the installed
-system's own init scripts and service descriptions; what is read has been checked
-against each model's stock firmware, and how those programs run on these models has
-not been verified.
-
 | Device | Codename | Built on |
 | --- | --- | --- |
-| 🚧 Xiaomi 13 | `fuxi` | OS3.0.309.0.WMCCNXM (Android 16) |
-| 🚧 Xiaomi 13 Pro | `nuwa` | OS3.0.312.0.WMBCNXM (Android 16) |
-| 🚧 Xiaomi 14 | `houji` | OS3.0.307.0.WNCCNXM (Android 16) |
-| 🚧 Xiaomi 14 Pro | `shennong` | OS3.0.309.0.WNBCNXM (Android 16) |
-| 🚧 Xiaomi 14 Ultra | `aurora` | OS3.0.308.0.WNACNXM (Android 16) |
-| 🚧 Xiaomi 15 | `dada` | OS3.0.307.0.WOCCNXM (Android 16) |
-| 🚧 Xiaomi 15 Pro | `haotian` | OS3.0.309.0.WOBCNXM (Android 16) |
-| 🚧 Xiaomi 15 Ultra | `xuanyuan` | OS3.0.314.0.WOACNXM (Android 16) |
-| 🚧 Xiaomi 17 | `pudding` | OS4.0.4.0.XPCCNXM (Android 17) |
-| 🚧 Xiaomi 17 Pro | `pandora` | OS4.0.4.0.XBLCNXM (Android 17) |
-| 🚧 Xiaomi 17 Pro Max | `popsicle` | OS4.0.4.0.XPBCNXM (Android 17) |
-| 🚧 Xiaomi 17 Max | `byron` | OS3.0.310.0.WAFCNXM (Android 16) |
-| 🚧 REDMI K80 | `zorn` | OS3.0.309.0.WOKCNXM (Android 16) |
-| 🚧 REDMI K80 Pro | `miro` | OS3.0.305.0.WOMCNXM (Android 16) |
-| 🚧 REDMI K90 | `annibale` | OS3.0.307.0.WPKCNXM (Android 16) |
-| 🚧 REDMI K90 Pro Max | `myron` | OS4.0.4.0.XPMCNXM (Android 17) |
-| 🚧 REDMI K90 Ultra | `warsaw` | OS3.0.309.0.WHPCNXM (Android 16) |
-| 🚧 REDMI K100 Pro | `athens` | OS4.0.4.0.XPICNXM (Android 17) |
-| 🚧 REDMI K100 Pro Max | `songyuan` | OS4.0.4.0.XGNCNXM (Android 17) |
+| Redmi K50 | `rubens` | OS1.0.14.0.ULNCNXM |
+
+This fork builds one phone, the Redmi K50. The image is built from the original
+OS1 `vendor_boot` the phone's owner supplied, and it has been tried on the phone.
+
+What has been checked on the phone:
+
+- it boots to its pages; the display, touch and the brightness slider work;
+- the service directory answers and the phone's own services register with it —
+  21 of them — with the keymint and gatekeeper HALs running;
+- the data partition opens and is mounted at `/data`;
+- WLAN switches on, scans and joins networks. The first switch-on takes about a
+  minute while the chip calibrates; after that it switches on in about a second;
+- file transfer over MTP browses internal storage and takes files from the
+  computer;
+- the vibration motor plays, and the brightness slider covers the panel's range.
+
+Not checked yet: installing packages, backup and restore, and OTA updates.
+
+Known limitations: MTP moves one page of data per request, so large files go
+slowly; the pages still drop a frame now and then at 60 Hz (about 14 ms a frame
+on the About page); the first WLAN switch-on takes about a minute.
+
+The phone was tested with a ported Android 15 system installed on it, whose
+vendor reports Android 12 with VNDK 31, on the OS1 base: the recovery reads the
+installed system's own properties, init scripts and libraries.
 
 ## Installing Skyward
 
-Skyward needs an unlocked bootloader. Download the zip for your phone from
-[Releases](https://github.com/kirklin/skyward/releases), where each shows as the
-phone's model and codename, such as Xiaomi 17 Ultra (nezha). Check it against
+Skyward needs an unlocked bootloader. Download the zip for the phone from
+[Releases](https://github.com/Catinst/Skyward-rubens/releases), where each shows
+as the phone's model and codename, such as Redmi K50 (rubens). Check it against
 `SHA256SUMS`, unzip it, and flash the image inside to the recovery partition of
-the slot the phone runs from, with the phone in fastboot mode:
+the slot the phone runs from, which is `vendor_boot` on rubens, with the phone in
+fastboot mode:
 
 ```sh
-unzip skyward-v0.3.1-nezha-OS4.0.4.0.XPACNXM.zip
-fastboot flash recovery skyward-v0.3.1-nezha-OS4.0.4.0.XPACNXM.img
+unzip skyward-v0.3.4-rubens-OS1.0.14.0.ULNCNXM.zip
+fastboot flash vendor_boot_a skyward-v0.3.4-rubens-OS1.0.14.0.ULNCNXM.img
 fastboot reboot recovery
 ```
+
+Where the phone starts from slot B, flash `vendor_boot_b` instead.
 
 Afterwards Skyward updates itself over Wi-Fi from its newest release, on the
 Skyward update page in Settings; a newer image, unzipped, also installs from its own
@@ -216,27 +212,33 @@ is built as a static program:
 RUSTFLAGS="-C target-feature=+crt-static" cargo ndk -t arm64-v8a --platform 30 build --release -p skyward-system-init --target-dir target/system-init
 ```
 
-The packer takes the stock recovery partition out of the build's full update
-package on Xiaomi's server, reading only the part of the package the partition is
-in, and checks its SHA-256 against the device file:
+The packer builds on the phone's stock recovery partition. This fork keeps that
+partition as the owner's own OS1 image, `stock/rubens/vendor_boot.img.xz`, rather
+than reading it from Xiaomi's server, so it is decompressed and checked first:
 
 ```sh
-target/release/skyward-pack stock --config devices/nezha.toml --out target/stock/nezha/recovery.img
+xz -dc stock/rubens/vendor_boot.img.xz > stock/rubens/vendor_boot.img
+echo '518f97f578fcc096c2eb54ba96e9bc7e37cee8d8b717bf0ae87f19bd3b814758  stock/rubens/vendor_boot.img' | sha256sum --check
 ```
 
 Then it builds the image on top of it:
 
 ```sh
 target/release/skyward-pack recovery \
-  --stock target/stock/nezha/recovery.img \
+  --stock stock/rubens/vendor_boot.img \
   --binary target/aarch64-linux-android/release/skyward \
   --system-init target/system-init/aarch64-linux-android/release/system-init \
-  --config devices/nezha.toml \
+  --config devices/rubens.toml \
   --font resources/fonts/MiSansVF.ttf \
   --mono resources/fonts/KirkMono-Regular.ttf \
   --mono-license resources/fonts/KirkMono-OFL.txt \
-  --out target/skyward-nezha.img
+  --add /system/etc/init/skyward-servicemanager-override.rc=stock/rubens/skyward-servicemanager-override.rc \
+  --out target/skyward-rubens.img
 ```
+
+The workflow in `.github/workflows/build.yml` does exactly this on every push and
+uploads the zipped image as an artifact; a release is published from a tag named
+after the version.
 
 Tests and lints run on the computer; what runs only on the phone is linted for it:
 

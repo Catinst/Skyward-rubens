@@ -83,46 +83,38 @@ Skyward 是使用 Rust 编写的 recovery，从零开始编写。
 
 ## 支持的机型
 
-| 机型 | 代号 | 测试的系统版本 |
-| --- | --- | --- |
-| 小米 17 Ultra | `nezha` | OS4.0.4.0.XPACNXM（Android 17） |
-| 小米 13 Ultra | `ishtar` | OS3.0.308.0.WMACNXM（Android 16） |
-
-### 🚧 施工中
-
-这些机型的镜像按照各自的原厂固件构建，还没有在真机上试过。屏幕、触摸、WLAN 和振动已经配置好。解密 data 分区所需的程序由 Skyward 在手机上从已安装系统的 init 脚本和服务描述中读出，每个机型的读取结果都用原厂固件核对过，这些程序在这些机型上的运行情况还没有验证。
-
 | 机型 | 代号 | 构建所用的系统版本 |
 | --- | --- | --- |
-| 🚧 小米 13 | `fuxi` | OS3.0.309.0.WMCCNXM（Android 16） |
-| 🚧 小米 13 Pro | `nuwa` | OS3.0.312.0.WMBCNXM（Android 16） |
-| 🚧 小米 14 | `houji` | OS3.0.307.0.WNCCNXM（Android 16） |
-| 🚧 小米 14 Pro | `shennong` | OS3.0.309.0.WNBCNXM（Android 16） |
-| 🚧 小米 14 Ultra | `aurora` | OS3.0.308.0.WNACNXM（Android 16） |
-| 🚧 小米 15 | `dada` | OS3.0.307.0.WOCCNXM（Android 16） |
-| 🚧 小米 15 Pro | `haotian` | OS3.0.309.0.WOBCNXM（Android 16） |
-| 🚧 小米 15 Ultra | `xuanyuan` | OS3.0.314.0.WOACNXM（Android 16） |
-| 🚧 小米 17 | `pudding` | OS4.0.4.0.XPCCNXM（Android 17） |
-| 🚧 小米 17 Pro | `pandora` | OS4.0.4.0.XBLCNXM（Android 17） |
-| 🚧 小米 17 Pro Max | `popsicle` | OS4.0.4.0.XPBCNXM（Android 17） |
-| 🚧 小米 17 Max | `byron` | OS3.0.310.0.WAFCNXM（Android 16） |
-| 🚧 REDMI K80 | `zorn` | OS3.0.309.0.WOKCNXM（Android 16） |
-| 🚧 REDMI K80 Pro | `miro` | OS3.0.305.0.WOMCNXM（Android 16） |
-| 🚧 REDMI K90 | `annibale` | OS3.0.307.0.WPKCNXM（Android 16） |
-| 🚧 REDMI K90 Pro Max | `myron` | OS4.0.4.0.XPMCNXM（Android 17） |
-| 🚧 REDMI K90 Ultra | `warsaw` | OS3.0.309.0.WHPCNXM（Android 16） |
-| 🚧 REDMI K100 Pro | `athens` | OS4.0.4.0.XPICNXM（Android 17） |
-| 🚧 REDMI K100 Pro Max | `songyuan` | OS4.0.4.0.XGNCNXM（Android 17） |
+| Redmi K50 | `rubens` | OS1.0.14.0.ULNCNXM |
+
+本 fork 只为一台手机构建：Redmi K50。镜像是按机主提供的原厂 OS1 `vendor_boot` 构建的，并且已经在真机上试过。
+
+已在真机上核对的内容：
+
+- 能进入页面；屏幕、触控和亮度调节正常；
+- 服务目录有应答，手机自己的服务注册成功（21 个），keymint 与 gatekeeper HAL 在运行；
+- data 分区能解密并挂载到 `/data`；
+- WLAN 能打开、扫描并连接网络；首次打开约需一分钟（芯片冷启动校准），之后约一秒即可打开；
+- 文件传输（MTP）可以在电脑上浏览内部存储、从电脑复制文件；
+- 振动可以播放，亮度滑条覆盖面板的范围。
+
+尚未核对：安装刷机包、备份与恢复、在线更新。
+
+已知限制：MTP 每次请求只搬一页数据，大文件传输偏慢；页面在 60 Hz 下仍会偶尔掉帧（关于本机页约 14 ms/帧）；首次打开 WLAN 约需一分钟。
+
+测试时手机上装的是移植的 Android 15 系统（vendor 报 Android 12 / VNDK 31），基底为 OS1；recovery 会读取已安装系统自己的属性、init 脚本和库。
 
 ## 安装 Skyward
 
-Skyward 需要已解锁的 bootloader。从 [Releases](https://github.com/kirklin/skyward/releases) 下载对应机型的 zip，每个文件都标有机型和代号，例如 Xiaomi 17 Ultra (nezha)。使用 `SHA256SUMS` 核对并解压之后，在手机处于 fastboot 模式的时候，把其中的镜像刷入当前运行槽位的 recovery 分区：
+Skyward 需要已解锁的 bootloader。从 [Releases](https://github.com/Catinst/Skyward-rubens/releases) 下载对应机型的 zip，每个文件都标有机型和代号，例如 Redmi K50 (rubens)。使用 `SHA256SUMS` 核对并解压之后，在手机处于 fastboot 模式的时候，把其中的镜像刷入当前运行槽位的 recovery 分区，rubens 上是 `vendor_boot`：
 
 ```sh
-unzip skyward-v0.3.1-nezha-OS4.0.4.0.XPACNXM.zip
-fastboot flash recovery skyward-v0.3.1-nezha-OS4.0.4.0.XPACNXM.img
+unzip skyward-v0.3.4-rubens-OS1.0.14.0.ULNCNXM.zip
+fastboot flash vendor_boot_a skyward-v0.3.4-rubens-OS1.0.14.0.ULNCNXM.img
 fastboot reboot recovery
 ```
+
+从 B 槽启动时把 `vendor_boot_a` 换成 `vendor_boot_b`。
 
 之后连接 WLAN，就可以在“设置”的“Skyward 更新”页面更新到最新版本，也可以在 Skyward 自己的“安装”页面安装解压出来的新版镜像。打开 **自动重新刷入 Skyward** 之后，系统更新或者刷机包覆盖 recovery 分区的时候，Skyward 会重新刷回这些分区。
 
@@ -162,26 +154,29 @@ cargo build --release -p skyward-pack
 RUSTFLAGS="-C target-feature=+crt-static" cargo ndk -t arm64-v8a --platform 30 build --release -p skyward-system-init --target-dir target/system-init
 ```
 
-打包工具从小米服务器上这个版本的完整更新包中取出原厂 recovery 分区，只读取这个分区所在的部分，并且按照设备配置文件核对 SHA-256：
+打包工具以手机的 stock recovery 分区为基底。本 fork 用的是机主提供的原厂 OS1 镜像 `stock/rubens/vendor_boot.img.xz`，不从小米服务器读取，所以先解压并核对：
 
 ```sh
-target/release/skyward-pack stock --config devices/nezha.toml --out target/stock/nezha/recovery.img
+xz -dc stock/rubens/vendor_boot.img.xz > stock/rubens/vendor_boot.img
+echo '518f97f578fcc096c2eb54ba96e9bc7e37cee8d8b717bf0ae87f19bd3b814758  stock/rubens/vendor_boot.img' | sha256sum --check
 ```
 
-然后在它的基础上构建镜像：
+然后在它之上构建镜像：
 
 ```sh
 target/release/skyward-pack recovery \
-  --stock target/stock/nezha/recovery.img \
+  --stock stock/rubens/vendor_boot.img \
   --binary target/aarch64-linux-android/release/skyward \
   --system-init target/system-init/aarch64-linux-android/release/system-init \
-  --config devices/nezha.toml \
+  --config devices/rubens.toml \
   --font resources/fonts/MiSansVF.ttf \
   --mono resources/fonts/KirkMono-Regular.ttf \
   --mono-license resources/fonts/KirkMono-OFL.txt \
-  --out target/skyward-nezha.img
+  --add /system/etc/init/skyward-servicemanager-override.rc=stock/rubens/skyward-servicemanager-override.rc \
+  --out target/skyward-rubens.img
 ```
 
+`.github/workflows/build.yml` 在每次 push 时做同样的事，并把压缩后的镜像作为 artifact 上传；打上以版本号命名的 tag 时会发布。
 测试和代码检查在电脑上运行；只在手机上运行的代码按照手机目标检查：
 
 ```sh
