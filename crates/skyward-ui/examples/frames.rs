@@ -115,7 +115,9 @@ fn run(name: &str, f: &Fonts, i: &DeviceInfo, quiet: bool) {
         }
         "specs" => {
             let mut p = Panel::new(Screen::Specs, f, i, quiet);
-            p.run(200);
+            // A page with nothing moving is drawn where it is asked for.
+            p.app.redraw();
+            p.run(50);
             p.report("the all-parameters page settled");
         }
         "about" => {
