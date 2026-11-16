@@ -353,6 +353,7 @@ impl App {
     /// long list come into view are drawn with `fresh`; a page drawn again
     /// as it last showed has them drawn already.
     pub(super) fn paint_page(&mut self, out: &mut Canvas, t: &Theme, fresh: Option<(&Fonts, &DeviceInfo)>, view: &View) {
+        let at = Instant::now();
         let m = t.m;
         let screen = self.screen();
         let (scroll, offset, pressing) = (view.scroll, view.offset, view.pressing);
@@ -446,6 +447,7 @@ impl App {
                 draw_faded(out, big, 0.0, -frame.title_lift(offset), t.pal.text, level, (1.0 - level) * m.dp(TITLE_BLUR_DP));
             }
         }
+        self.drew_for[6] = at.elapsed().as_millis() as u32;
         // The search page's round button and the home page's search bar
         // darken at once under a finger.
         if let Some(a) = pressing.filter(|a| matches!(a, Action::CloseSearch | Action::Open(Screen::Search))) {
@@ -505,6 +507,7 @@ impl App {
         let level = view.title;
         let blur = if frame.hero.is_some() { 0.0 } else { (1.0 - level) * m.dp(TITLE_BLUR_DP) };
         draw_faded(out, small, 0.0, 0.0, t.pal.text, level, blur);
+        self.drew_for[7] = (at.elapsed().as_millis() as u32).saturating_sub(self.drew_for[6]);
     }
 
     /// Where a page sliding in over the page left, or the page left
