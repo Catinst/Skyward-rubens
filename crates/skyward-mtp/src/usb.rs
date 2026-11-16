@@ -24,9 +24,12 @@ const EP_OUT: &str = "/dev/usb-ffs/mtp/ep2";
 /// Interrupt in, the events.
 const EP_EVENT: &str = "/dev/usb-ffs/mtp/ep3";
 
-/// How much one transfer of a file moves: two of these take turns, one on
-/// the bus while the other is read from the file or written to it.
-const CHUNK: usize = 1 << 20;
+/// How much one request on the bus moves: two of these take turns, one on
+/// the bus while the other is read from the file or written to it. The
+/// controller turns away a request of a megabyte with an unsupported
+/// operation, which ended the session on the first data phase the computer
+/// sent; sixteen thousand bytes it takes.
+const CHUNK: usize = 1 << 14;
 
 /// What a command is read into; one is a single short packet.
 const COMMAND_MAX: usize = 512;

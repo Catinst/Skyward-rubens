@@ -504,7 +504,9 @@ fn mtp(config: &str, folder: &Path) -> Result<()> {
     };
     let service = skyward_mtp::Service::start(device, skyward_ui::fmt::rules(0).clone())?;
     skyward_sys::usb::set_mtp(true);
-    skyward_sys::usb::set("mtp,adb", std::time::Duration::from_secs(5))?;
+    // Through "none", as the switch does: init links the function it was
+    // not told to link before.
+    skyward_sys::usb::switch("mtp,adb", std::time::Duration::from_secs(5))?;
     service.offer(Some(skyward_mtp::Storage { top: folder.to_path_buf(), description: "Internal storage".into() }))?;
     println!("file transfer serves {} while this runs", folder.display());
     loop {
