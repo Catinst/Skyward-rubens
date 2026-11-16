@@ -357,6 +357,13 @@ impl<'a> Panel<'a> {
         );
         self.parts = [0.0; 8];
         self.drawn = 0;
+        // A frame to look at, where someone asks where it goes, in the
+        // canvas's own bytes: four to a pixel, red first.
+        if let Ok(path) = std::env::var("FRAMES_DUMP") {
+            if !path.is_empty() {
+                std::fs::write(path, &self.out.data).expect("write the frame");
+            }
+        }
     }
 }
 
